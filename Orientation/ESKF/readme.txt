@@ -1,1 +1,0 @@
-gn is the gravity negative
