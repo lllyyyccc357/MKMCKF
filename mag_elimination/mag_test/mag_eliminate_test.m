@@ -4,7 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_no_disturb_move_NED.mat')
+load('mag_disturb_static_NED_4.mat')
 % obtain the orientation
 fs=IMU.Acc_fs;
 sample_freq=fs;
@@ -127,11 +127,15 @@ q_imu_gd=Quat_gd;% gd
 q_imu_doe=Quat_doe;% doe
 q_imu_mkmc=Quat_mkmc;% mkmc
 
-
+q1=IMU.quat;
+Quat_mc=Quat_gd;
+for i=1:length(q1)
+    Quat_mc(i)=quaternion(q1(i,1),q1(i,2),q1(i,3),q1(i,4));
+end
 % mc=eulerd(q_mc_q,'ZXY','frame');
-mc=IMU.EulerNew;
-mc=mc*[-1 0 0;0 1 0 ; 0 0 1];
-eks=eulerd(q_imu_eks,'ZXY','frame')
+mc=eulerd( Quat_mc,'ZXY','frame');
+% mc=mc*[0 1 0;1 0 0;0 0 -1];
+eks=eulerd(q_imu_eks,'ZXY','frame');
 eks_tho=eulerd(q_imu_tho,'ZXY','frame');
 
 ceks=eulerd(q_imu_ceks,'ZXY','frame');
@@ -181,7 +185,52 @@ for i=1:lenEuler
     elseif(err_doe(i,1)<-100)
     err_doe(i,1)=err_doe(i,1)+360;
     end
+    if(err_mkmc(i,1)>100)
+    err_mkmc(i,1)=err_mkmc(i,1)-360;
+    elseif(err_mkmc(i,1)<-100)
+    err_mkmc(i,1)=err_mkmc(i,1)+360;
+    end
 end
+% 
+% % pitch error correction
+% lenEuler=length(err_eks);
+% for i=1:lenEuler
+%     if(err_eks(i,3)>100)
+%     err_eks(i,3)=err_eks(i,3)-360;
+%     elseif(err_eks(i,3)<-100)
+%     err_eks(i,3)=err_eks(i,3)+360;
+%     end
+%     if(err_eks_tho(i,3)>100)
+%     err_eks_tho(i,3)=err_eks_tho(i,3)-360;
+%     elseif(err_eks_tho(i,3)<-100)
+%     err_eks_tho(i,3)=err_eks_tho(i,3)+360;
+%     end
+%     if(err_ceks(i,3)>100)
+%     err_ceks(i,3)=err_ceks(i,3)-360;
+%     elseif(err_ceks(i,3)<-100)
+%     err_ceks(i,3)=err_ceks(i,3)+360;
+%     end
+%     if(err_eskf(i,3)>100)
+%     err_eskf(i,3)=err_eskf(i,3)-360;
+%     elseif(err_eskf(i,3)<-100)
+%     err_eskf(i,3)=err_eskf(i,3)+360;
+%     end
+%     if(err_gd(i,3)>100)
+%     err_gd(i,3)=err_gd(i,3)-360;
+%     elseif(err_gd(i,3)<-100)
+%     err_gd(i,3)=err_gd(i,3)+360;
+%     end
+%     if(err_doe(i,3)>100)
+%     err_doe(i,3)=err_doe(i,3)-360;
+%     elseif(err_doe(i,3)<-100)
+%     err_doe(i,3)=err_doe(i,3)+360;
+%     end
+%     if(err_mkmc(i,3)>100)
+%     err_mkmc(i,3)=err_mkmc(i,3)-360;
+%     elseif(err_mkmc(i,3)<-100)
+%     err_mkmc(i,3)=err_mkmc(i,3)+360;
+%     end
+% end
 
 %
 error.err_eks_rms=rms(err_eks);
@@ -199,10 +248,10 @@ hold on
 plot(t_eul,err_eks(:,1),'LineWidth',1,'color','g')
 plot(t_eul,err_eks_tho(:,1),'LineWidth',1,'color','r')
 plot(t_eul,err_ceks(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-% plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
-% plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
-% plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-%plot(err_mkmc(:,1),'linewidth',0.8)
+plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
+plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+% plot(err_mkmc(:,1),'linewidth',0.8)
 legend('EKS','EKS_tho','MKCERTS','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
 xticks([])
 ylabel('yaw ($\deg$)', 'interpreter','latex')
@@ -213,9 +262,9 @@ hold on
 plot(t_eul,err_eks(:,2),'LineWidth',1,'color','g')
 plot(t_eul,err_eks_tho(:,2),'LineWidth',1,'color','r')
 plot(t_eul,err_ceks(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-% plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
-% plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
-% plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
+plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
+plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 ylabel('roll ($\deg$)', 'interpreter','latex')
 %plot(err_mkmc(:,2),'linewidth',0.8)
 xticks([])
@@ -226,10 +275,10 @@ hold on
 plot(t_eul,err_eks(:,3),'LineWidth',1,'color','g')
 plot(t_eul,err_eks_tho(:,3),'LineWidth',1,'color','r')
 plot(t_eul,err_ceks(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-% plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
-% plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
-% plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-%plot(err_mkmc(:,3),'linewidth',0.8)
+plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
+plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+% plot(err_mkmc(:,3),'linewidth',0.8)
 set(gca,'FontSize',16)
 xlabel('time (s)', 'interpreter','latex')
 ylabel('pitch ($\deg$)', 'interpreter','latex')
