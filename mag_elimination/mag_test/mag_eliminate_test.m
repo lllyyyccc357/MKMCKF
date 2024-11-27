@@ -4,7 +4,8 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_disturb_static_NED_1.mat')
+load('mag_disturb_static_NED_5.mat')
+
 % obtain the orientation
 fs=IMU.Acc_fs;
 sample_freq=fs;
@@ -223,7 +224,7 @@ hold on
 plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','r')
 plot(t_eul,err_ceks(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-% plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 % plot(err_mkmc(:,1),'linewidth',0.8)
@@ -241,7 +242,7 @@ hold on
 plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','r')
 plot(t_eul,err_ceks(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-% plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
+plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 ylabel('roll ($\deg$)', 'interpreter','latex')
@@ -257,7 +258,7 @@ hold on
 plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','r')
 plot(t_eul,err_ceks(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-% plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 % plot(err_mkmc(:,3),'linewidth',0.8)
