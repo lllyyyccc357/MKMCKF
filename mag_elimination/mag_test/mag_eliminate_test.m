@@ -91,10 +91,17 @@ euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 
 %% Thomas elimination
 
-[ekf_tho,qtho]=Multi_Rate_Thomas_eliminateMag_EKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [ekf_tho,qtho]=Multi_Rate_Thomas_eliminateMag_EKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% Quat_thomas=Quat_gd;
+% for i=1:length(qtho)
+%     Quat_thomas(i)=quaternion(qtho(i,4),qtho(i,1),qtho(i,2),qtho(i,3));
+% end
+% euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
+
+[~,qtho]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_thomas=Quat_gd;
 for i=1:length(qtho)
-    Quat_thomas(i)=quaternion(qtho(i,4),qtho(i,1),qtho(i,2),qtho(i,3));
+    Quat_thomas(i)=qtho(:,i);
 end
 euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
 

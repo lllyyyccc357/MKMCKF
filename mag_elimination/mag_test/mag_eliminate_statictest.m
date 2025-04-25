@@ -80,8 +80,8 @@ euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=2.3;
-sigma_mag_init=1.7;
+sigma_acc_init=0.2;
+sigma_mag_init=0.01;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -95,9 +95,17 @@ for i=1:length(qtho)
 end
 euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
 
+[~,qtho]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+Quat_thomas_IEKF=Quat_gd;
+for i=1:length(qtho)
+    Quat_thomas_IEKF(i)=qtho(:,i);
+end
+euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZXY','frame');
+
 q_imu_ekf=Quat_ekf;
 q_imu_tho=Quat_thomas;
-
+q_imu_tho_iekf=Quat_thomas_IEKF;
 q_imu_eskf=Quat_eskf;% eskf
 q_imu_gd=Quat_gd;% gd
 q_imu_doe=Quat_doe;% doe
@@ -107,19 +115,30 @@ q_imu_doe=Quat_doe;% doe
 
 ekf=eulerd(q_imu_ekf,'ZXY','frame');
 ekf_tho=eulerd(q_imu_tho,'ZXY','frame');
-
+iekf_tho=eulerd(q_imu_tho_iekf,'ZXY','frame');
 eskf=eulerd(q_imu_eskf,'ZXY','frame');
 gd=eulerd(q_imu_gd,'ZXY','frame');
 doe=eulerd(q_imu_doe,'ZXY','frame');
 
 
-mean_value=mean(ekf_tho(1:8,:),1);
-init_state=repmat(mean_value, size(ekf_tho, 1), 1);
-err_ekf=init_state-ekf;
-err_ekf_tho=init_state-ekf_tho;
-err_eskf=init_state-eskf;
-err_gd=init_state-gd;
-err_doe=init_state-doe;
+% 初始状态：ekf 前 20 个样本的均值
+mean_value_ekf = mean(ekf(1:3,:), 1);
+
+% 构造一个和每组数据同尺寸的初始状态矩阵
+init_state_ekf = repmat(mean_value_ekf, size(ekf, 1), 1);
+init_state_ekf_tho = repmat(mean_value_ekf, size(ekf_tho, 1), 1);
+init_state_iekf_tho = repmat(mean_value_ekf, size(ekf_tho, 1), 1);
+init_state_eskf = repmat(mean_value_ekf, size(eskf, 1), 1);
+init_state_gd = repmat(mean_value_ekf, size(gd, 1), 1);
+init_state_doe = repmat(mean_value_ekf, size(doe, 1), 1);
+
+% 误差计算
+err_ekf = init_state_ekf - ekf;
+err_ekf_tho = init_state_ekf_tho - ekf_tho;
+err_iekf_tho = init_state_iekf_tho - iekf_tho;
+err_eskf = init_state_eskf - eskf;
+err_gd = init_state_gd - gd;
+err_doe = init_state_doe - doe;
 
 % yaw error correction
 lenEuler=length(err_ekf);
@@ -133,6 +152,11 @@ for i=1:lenEuler
     err_ekf_tho(i,1)=err_ekf_tho(i,1)-360;
     elseif(err_ekf_tho(i,1)<-100)
     err_ekf_tho(i,1)=err_ekf_tho(i,1)+360;
+    end
+    if(err_iekf_tho(i,1)>100)
+    err_iekf_tho(i,1)=err_iekf_tho(i,1)-360;
+    elseif(err_iekf_tho(i,1)<-100)
+    err_iekf_tho(i,1)=err_iekf_tho(i,1)+360;
     end
     if(err_eskf(i,1)>100)
     err_eskf(i,1)=err_eskf(i,1)-360;
@@ -161,6 +185,11 @@ for i=1:lenEuler
     elseif(err_ekf_tho(i,3)<-100)
     err_ekf_tho(i,3)=err_ekf_tho(i,3)+360;
     end
+    if(err_iekf_tho(i,3)>100)
+    err_iekf_tho(i,3)=err_iekf_tho(i,3)-360;
+    elseif(err_ekf_tho(i,3)<-100)
+    err_iekf_tho(i,3)=err_iekf_tho(i,3)+360;
+    end
     if(err_eskf(i,3)>100)
     err_eskf(i,3)=err_eskf(i,3)-360;
     elseif(err_eskf(i,3)<-100)
@@ -182,6 +211,7 @@ end
 %
 error.err_ekf_rms=rms(err_ekf);
 error.err_ekf_tho_rms=rms(err_ekf_tho);
+error.err_iekf_tho_rms=rms(err_iekf_tho);
 error.err_eskf_rms=rms(err_eskf);
 error.err_gd_rms=rms(err_gd);
 error.err_doe_rms=rms(err_doe);
@@ -195,7 +225,7 @@ xlabel('t');
 ylabel('Magnetic Norm', 'interpreter','latex')
 hold on
 % 设置阈值
-threshold = MagNorm_init+1;
+threshold = MagNorm_init;
 
 x_first= t_eul(find(Mag_norm > threshold, 1, 'first'));
 x_last = t_eul(find(Mag_norm > threshold, 1, 'last'));
@@ -207,7 +237,7 @@ figure
 x1=subplot(3,1,1);
 hold on
 plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,1),'LineWidth',2,'color','black')
+plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','black')
 plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
@@ -223,7 +253,7 @@ box on
 x2=subplot(3,1,2);
 hold on
 plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,2),'LineWidth',2,'color','black')
+plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','black')
 plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
@@ -237,7 +267,7 @@ box on
 x3=subplot(3,1,3);
 hold on
 plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,3),'LineWidth',2,'color','black')
+plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','black')
 plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
@@ -261,10 +291,11 @@ figure
 x1=subplot(3,1,1);
 hold on
 plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,1),'LineWidth',2,'color','black')
+plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf_tho(:,1),'LineWidth',1,'color','black')
 plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
 plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-legend('EKF','EKF_Mag_Eliminate','interpreter','latex','Orientation','horizontal')
+legend('EKF','EKF_Mag_Eliminate','IEKF_Mag_Eliminate','interpreter','latex','Orientation','horizontal')
 
 
 xticks([])
@@ -274,7 +305,8 @@ box on
 x2=subplot(3,1,2);
 hold on
 plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,2),'LineWidth',2,'color','black')
+plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf_tho(:,2),'LineWidth',1,'color','black')
 ylabel('roll ($\deg$)', 'interpreter','latex')
 plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
 plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
@@ -285,7 +317,8 @@ box on
 x3=subplot(3,1,3);
 hold on
 plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,3),'LineWidth',2,'color','black')
+plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf_tho(:,3),'LineWidth',1,'color','black')
 plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
 plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
 
