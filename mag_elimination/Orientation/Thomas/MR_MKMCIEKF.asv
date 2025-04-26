@@ -1,4 +1,4 @@
-function [out,QUAT_ORI_MKMC]=MR_MKMCIEKF(acc, gyr, mag, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag)
+function [R_ORI_MKMC,QUAT_ORI_MKMC]=MR_MKMCIEKF(acc, gyr, mag, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag)
 
 
 % Accelerometer data
@@ -93,7 +93,7 @@ for i=1:length(t)-1
         zma_prior=X_tlast'*g; %R_proi'=C
 %         zmm=[hx(i);hy(i);hz(i)]; 
 %         zmm_prior=X_tlast'*h;
-        za=(zma-zma_prior);
+        za=-(zma-zma_prior);
 %         zm=(zmm-zmm_prior);
          H_acc=vec2matrix(g);
 %          Hm=vec2matrix(h);
@@ -115,10 +115,7 @@ for i=1:length(t)-1
        num=num-1;
            X_t=R_proi*expm(-vec2matrix(K_acc*za));
            thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
-           THE_acc(i,cnt-num)=thresh;
-               if(thresh<1e-25)
-                 break;
-               end
+           thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
      end
     R_post=X_t;
     Ppost=(eye(3)-K_acc*H_acc)*Ppriori;
@@ -136,7 +133,7 @@ for i=1:length(t)-1
         m_hat_s=m_hat_s/norm(m_hat_s);
         zmm=m_hat_s;
         zmm_prior=R_proi'*h;
-        zm=(zmm-zmm_prior);
+        zm=-(zmm-zmm_prior);
         H_mag=vec2matrix(h);
         er_m=br_m\zm;
         Er_m(i,:)=zm;

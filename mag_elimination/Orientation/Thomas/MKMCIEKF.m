@@ -80,7 +80,7 @@ for i=1:length(t)-1
     er=br\z;
         Er(i,:)=z;
     Ernorm(i,:)=er;
-    cnt=4;
+    cnt=6;
     num=cnt;
 
      while(num>0)
@@ -114,11 +114,11 @@ for i=1:length(t)-1
         S=H*Ppriori*H'+R_1;
         K=Ppriori*H'*inv(S);
        num=num-1;
-           X_t=R_proi*expm(vec2matrix(K*z));
-           thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
-           if(thresh<1e-20)
-             break;
-           end
+           X_t=R_proi*expm(-vec2matrix(K*z));
+           thresh=norm(X_t-X_tlast)/(norm(X_t)+1e-3);
+%            if(thresh<1e-20)
+%              break;
+%            end
      end
         R_post=X_t;
         Ppost=(eye(3)-K*H)*Ppriori;

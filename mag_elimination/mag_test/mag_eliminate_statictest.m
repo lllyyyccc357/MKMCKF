@@ -4,7 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_disturb_static_1.mat')
+load('mag_disturb_static_4.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -80,8 +80,8 @@ euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=0.2;
-sigma_mag_init=0.01;
+sigma_acc_init=4.5;
+sigma_mag_init=1.7;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -95,11 +95,11 @@ for i=1:length(qtho)
 end
 euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
 
-[~,qtho]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
-% [~,qtho]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_thomas_IEKF=Quat_gd;
-for i=1:length(qtho)
-    Quat_thomas_IEKF(i)=qtho(:,i);
+for i=1:length(qtho_iekf)
+    Quat_thomas_IEKF(i)=qtho_iekf(:,i);
 end
 euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZXY','frame');
 
