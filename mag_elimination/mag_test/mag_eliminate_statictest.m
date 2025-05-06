@@ -23,7 +23,7 @@ end
 MagSth=45;
 ahrs=orientation_estimation_ahrs_fun_xsens(Accelerometer,Gyroscope,Magnetic,fs,MagSth);
 Quat_eskf=ahrs.Quat;
-euler_eskf=eulerd(Quat_eskf,'ZXY','frame');
+euler_eskf=eulerd(Quat_eskf,'ZYX','frame');
 %% MadgwickAHRS
 AHRS = MadgwickAHRS('SamplePeriod', 1/fs, 'Beta', 0.1);
 time=0:1/fs:1/fs*(len-1);
@@ -39,7 +39,7 @@ Quat_gd=Quat_eskf;
 for i=1:length(quat)
 Quat_gd(i)=quaternion(quat(i,1),quat(i,2),quat(i,3),quat(i,4));
 end
-euler_gd=eulerd(Quat_gd,'ZXY','frame');
+euler_gd=eulerd(Quat_gd,'ZYX','frame');
 %% DOE
 tauAcc= 5;
 tauMag= 10;
@@ -51,7 +51,7 @@ Quat_doe=Quat_gd;
 for i=1:length(quat_doe)
 Quat_doe(i)=quaternion(quat_doe(i,:));
 end
-euler_doe=eulerd(Quat_doe,'ZXY','frame');
+euler_doe=eulerd(Quat_doe,'ZYX','frame');
 
 
 %% EKF
@@ -67,7 +67,7 @@ stdMag  = 0.02;          % (a.u.)
 for i=1:length(q1)
     Quat_ekf(i)=quaternion(q1(i,4),q1(i,1),q1(i,2),q1(i,3));
 end
-euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
+euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % %% EK smoother
 % % ekfb=SAB_New_MKMCS(ekf,IMU.Acceleration,IMU.Magnetic);
 % % q1=ekfb.stateb';
@@ -80,8 +80,8 @@ euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=4.5;
-sigma_mag_init=1.7;
+sigma_acc_init=1000;
+sigma_mag_init=1000;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -93,15 +93,15 @@ Quat_thomas=Quat_gd;
 for i=1:length(qtho)
     Quat_thomas(i)=quaternion(qtho(i,4),qtho(i,1),qtho(i,2),qtho(i,3));
 end
-euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
+euler_thomas=eulerd(Quat_thomas,'ZYX','frame');
 
-[~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
-% [~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_thomas_IEKF=Quat_gd;
 for i=1:length(qtho_iekf)
     Quat_thomas_IEKF(i)=qtho_iekf(:,i);
 end
-euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZXY','frame');
+euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZYX','frame');
 
 q_imu_ekf=Quat_ekf;
 q_imu_tho=Quat_thomas;
@@ -113,12 +113,12 @@ q_imu_doe=Quat_doe;% doe
 
 
 
-ekf=eulerd(q_imu_ekf,'ZXY','frame');
-ekf_tho=eulerd(q_imu_tho,'ZXY','frame');
-iekf_tho=eulerd(q_imu_tho_iekf,'ZXY','frame');
-eskf=eulerd(q_imu_eskf,'ZXY','frame');
-gd=eulerd(q_imu_gd,'ZXY','frame');
-doe=eulerd(q_imu_doe,'ZXY','frame');
+ekf=eulerd(q_imu_ekf,'ZYX','frame');
+ekf_tho=eulerd(q_imu_tho,'ZYX','frame');
+iekf_tho=eulerd(q_imu_tho_iekf,'ZYX','frame');
+eskf=eulerd(q_imu_eskf,'ZYX','frame');
+gd=eulerd(q_imu_gd,'ZYX','frame');
+doe=eulerd(q_imu_doe,'ZYX','frame');
 
 
 % 初始状态：ekf 前 20 个样本的均值
@@ -187,7 +187,7 @@ for i=1:lenEuler
     end
     if(err_iekf_tho(i,3)>100)
     err_iekf_tho(i,3)=err_iekf_tho(i,3)-360;
-    elseif(err_ekf_tho(i,3)<-100)
+    elseif(err_iekf_tho(i,3)<-100)
     err_iekf_tho(i,3)=err_iekf_tho(i,3)+360;
     end
     if(err_eskf(i,3)>100)

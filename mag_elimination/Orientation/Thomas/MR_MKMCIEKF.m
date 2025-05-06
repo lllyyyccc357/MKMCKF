@@ -70,7 +70,7 @@ for i=1:length(t)-1
     zma_prior=R_proi'*g; %R_proi'=C
     
     za=(zma-zma_prior);
-    H_acc=vec2matrix(g);
+    H_acc=-vec2matrix(R_proi'*g);
 
     %Ha=vec2matrix(g);
     %Hm=vec2matrix(h);
@@ -95,7 +95,7 @@ for i=1:length(t)-1
 %         zmm_prior=X_tlast'*h;
         za=(zma-zma_prior);
 %         zm=(zmm-zmm_prior);
-         H_acc=vec2matrix(g);
+         H_acc=-vec2matrix(X_tlast'*g);
 %          Hm=vec2matrix(h);
         %Ha=vec2matrix(g);
         %Hm=vec2matrix(h);
@@ -137,7 +137,7 @@ for i=1:length(t)-1
         zmm=m_hat_s;
         zmm_prior=R_proi'*h;
         zm=(zmm-zmm_prior);
-        H_mag=vec2matrix(h);
+        H_mag=-vec2matrix(R_proi'*h);
         er_m=br_m\zm;
         Er_m(i,:)=zm;
         Ernorm_m(i,:)=er_m;
@@ -150,9 +150,19 @@ for i=1:length(t)-1
            else  
             X_tlast=X_t; 
            end
+            q=dcm2quat(X_tlast);
+            q_e2s_gyr=[q(2);q(3);q(4);q(1)];
+            q_e2s_gyr=q_e2s_gyr/QuaternionsNorm(q_e2s_gyr);
+            q_s2e_gyr=QuaternionsConj(q_e2s_gyr);
+            q_s_acc=QuaternionsProd(q_s2e_gyr,QuaternionsProd([0;0;1;0],q_e2s_gyr));
+            r_s_acc=q_s_acc(1:3,:);
+            m=[hx(i);hy(i);hz(i)];
+            m_hat_s=m-dot(m,r_s_acc)*r_s_acc;
+            m_hat_s=m_hat_s/norm(m_hat_s);
+            zmm=m_hat_s;
             zmm_prior=X_tlast'*h;
             zm=(zmm-zmm_prior);
-            H_mag=vec2matrix(h);
+            H_mag=-vec2matrix(X_tlast'*h);
     %          Hm=vec2matrix(h);
             %Ha=vec2matrix(g);
             %Hm=vec2matrix(h);

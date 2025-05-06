@@ -1,4 +1,4 @@
-function [R_ORI,QUAT_ORI]=IEKF_IMU1(acc, gyr, mag, t, stdAcc, stdGyro, stdMag)
+function [R_ORI,QUAT_ORI]=IEKF_IMU2(acc, gyr, mag, t, stdAcc, stdGyro, stdMag)
 % Accelerometer data
 ax = -acc(:,1); ay = -acc(:,2); az = -acc(:,3);
 % Gyroscope data
@@ -48,13 +48,15 @@ Q=L_k*Q_k*L_k'; % L_k*L_k'=eye(3)
 Ppriori= Ppost+Q; %
 % update
 zma=[ax(i);ay(i);az(i)]; 
+zma_prior=R_proi'*g; %R_proi'=C
 zmm=[hx(i);hy(i);hz(i)]; 
-za=(R_proi*zma-g);
-zm=(R_proi*zmm-h);
-Ha=-vec2matrix(g);
-Hm=-vec2matrix(h);
-%Ha=-vec2matrix(R_proi'*g);
-%Hm=-vec2matrix(R_proi'*h);
+zmm_prior=R_proi'*h;
+za=(zma-zma_prior);
+zm=(zmm-zmm_prior);
+%Ha=vec2matrix(g);
+%Hm=vec2matrix(h);
+Ha=-vec2matrix(R_proi'*g);
+Hm=-vec2matrix(R_proi'*h);
 %Ha=vec2matrix(g);
 %Hm=vec2matrix(h);
 z=[za;zm];
@@ -62,7 +64,7 @@ H=[Ha;Hm];
 S=H*Ppriori*H'+R;
 K=Ppriori*H'*inv(S);
 %R_post=R_proi*expm(-vec2matrix(K*z));
-R_post=expm(-vec2matrix(K*z))*R_proi; % right invariant form
+R_post=R_proi*expm(-vec2matrix(K*z));
 Ppost=(eye(3)-K*H)*Ppriori;
 % quaternion
 Quat= quaternion(R_post, 'rotmat', 'frame');
