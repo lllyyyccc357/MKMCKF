@@ -4,7 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_disturb_static_4.mat')
+load('mag_stabledisturb_static_1.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -32,7 +32,7 @@ Err = zeros(length(time), 6);
 for t = 1:length(time)
     AHRS.Update(Gyroscope(t,:), Accelerometer(t,:), Magnetic(t,:));	% gyroscope units must be radians
     quat(t, :) = AHRS.Quaternion;
-    Err(t,:)=AHRS.Err;
+%     Err(t,:)=AHRS.Err;
 end
 % Plot algorithm output as Euler angles
 Quat_gd=Quat_eskf;
@@ -80,8 +80,8 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=1000;
-sigma_mag_init=1000;
+sigma_acc_init=5;
+sigma_mag_init=5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -95,8 +95,8 @@ for i=1:length(qtho)
 end
 euler_thomas=eulerd(Quat_thomas,'ZYX','frame');
 
-% [~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
-[~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_thomas_IEKF=Quat_gd;
 for i=1:length(qtho_iekf)
     Quat_thomas_IEKF(i)=qtho_iekf(:,i);
@@ -295,7 +295,7 @@ plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_iekf_tho(:,1),'LineWidth',1,'color','black')
 plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
 plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-legend('EKF','EKF_Mag_Eliminate','IEKF_Mag_Eliminate','interpreter','latex','Orientation','horizontal')
+legend('EKF','EKF_Decoupled','IEKF_Decoupled','interpreter','latex','Orientation','horizontal')
 
 
 xticks([])
