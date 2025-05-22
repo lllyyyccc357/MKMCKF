@@ -13,9 +13,6 @@ classdef MadgwickAHRS < handle
         SamplePeriod = 1/256;
         Quaternion = [1 0 0 0];     % output quaternion describing the Earth relative to the sensor
         Beta = 1;               	% algorithm gain
-        Err=zeros(6,1);
-        mVec=zeros(3,1);
-        qmVec=zeros(4,1);
     end
 
     %% Public methods
@@ -49,7 +46,6 @@ classdef MadgwickAHRS < handle
                R_=[r_north,r_east,r_down];
                Q__ = quaternion(R_, 'rotmat', 'frame');    
                obj.Quaternion=compact(Q__);
-               mVec=R_'*magr'; % the magnetic vector on the earth frame (navigation frame)
             end
             q = obj.Quaternion; % short name local variable for readability
 
@@ -62,10 +58,9 @@ classdef MadgwickAHRS < handle
             Magnetometer = Magnetometer / norm(Magnetometer);	% normalise magnitude
 
             % Reference direction of Earth's magnetic feild
-            h = quaternProd(q, quaternProd([0 Magnetometer], quaternConj(q))); % updaste the magnetic dip
+            h = quaternProd(q, quaternProd([0 Magnetometer], quaternConj(q)));
             b = [0 norm([h(2) h(3)]) 0 h(4)];
-            obj.qmVec=b;
-            %b= [0; obj.mVec] ;
+
             % Gradient decent algorithm corrective step
             F = [2*(q(2)*q(4) - q(1)*q(3)) - Accelerometer(1)
                 2*(q(1)*q(2) + q(3)*q(4)) - Accelerometer(2)
@@ -79,20 +74,15 @@ classdef MadgwickAHRS < handle
                 -2*b(4)*q(3),               2*b(4)*q(4),               -4*b(2)*q(3)-2*b(4)*q(1),       -4*b(2)*q(4)+2*b(4)*q(2)
                 -2*b(2)*q(4)+2*b(4)*q(2),	2*b(2)*q(3)+2*b(4)*q(1),	2*b(2)*q(2)+2*b(4)*q(4),       -2*b(2)*q(1)+2*b(4)*q(3)
                 2*b(2)*q(3),                2*b(2)*q(4)-4*b(4)*q(2),	2*b(2)*q(1)-4*b(4)*q(3),        2*b(2)*q(2)];
-            
-            
-            error=F;
             step = (J'*F);
             step = step / norm(step);	% normalise step magnitude
 
-            
             % Compute rate of change of quaternion
             qDot = 0.5 * quaternProd(q, [0 Gyroscope(1) Gyroscope(2) Gyroscope(3)]) - obj.Beta * step';
 
             % Integrate to yield quaternion
             q = q + qDot * obj.SamplePeriod;
             obj.Quaternion = q / norm(q); % normalise quaternion
-            obj.Err=error;
         end
         function obj = UpdateIMU(obj, Gyroscope, Accelerometer)
             q = obj.Quaternion; % short name local variable for readability

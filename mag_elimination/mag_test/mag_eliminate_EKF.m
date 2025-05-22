@@ -1,10 +1,10 @@
-function mag_eliminate_statictest()
+function mag_eliminate_EKF()
 
 close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_stabledisturb_static_1.mat')
+load('mag_stabledisturb_static_2.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -80,8 +80,8 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=2;
-sigma_mag_init=1000;
+sigma_acc_init=5;
+sigma_mag_init=5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -95,8 +95,8 @@ for i=1:length(qtho)
 end
 euler_thomas=eulerd(Quat_thomas,'ZYX','frame');
 
-% [~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
-[~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_thomas_IEKF=Quat_gd;
 for i=1:length(qtho_iekf)
     Quat_thomas_IEKF(i)=qtho_iekf(:,i);
@@ -218,120 +218,115 @@ error.err_doe_rms=rms(err_doe);
 
 error
 figure
-t_eul=0:1/400:(length(err_ekf)-1)*1/400;
-MagNorm_init=mean(Mag_norm(1,1:20));
-plot(t_eul,Mag_norm,'LineWidth',1,'color','g')
-xlabel('t');
-ylabel('Magnetic Norm', 'interpreter','latex')
+t_eul = 0:1/400:(length(err_ekf)-1)*1/400;
+MagNorm_init = mean(Mag_norm(1,1:20));
+plot(t_eul, Mag_norm, 'LineWidth', 1, 'color', 'g')
+xlabel('时间（秒）');
+ylabel('磁场模长', 'interpreter', 'latex')
 hold on
+
 % 设置阈值
-threshold = MagNorm_init;
-
-x_first= t_eul(find(Mag_norm > threshold, 1, 'first'));
+threshold = MagNorm_init+5;
+x_first = t_eul(find(Mag_norm > threshold, 1, 'first'));
 x_last = t_eul(find(Mag_norm > threshold, 1, 'last'));
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
 
 figure
 
-x1=subplot(3,1,1);
+ x1 = subplot(3,1,1);
 hold on
-plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','black')
-plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
-plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
-plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-legend('EKF','EKF_Mag_Eliminate','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
-
+plot(t_eul, err_ekf(:,1), 'LineWidth', 1, 'color', 'g')
+plot(t_eul, err_ekf_tho(:,1), 'LineWidth', 1, 'color', 'black')
+plot(t_eul, err_eskf(:,1), 'LineWidth', 1, 'color', 'blue')
+plot(t_eul, err_gd(:,1), 'LineWidth', 1, 'color', 'm')
+plot(t_eul, err_doe(:,1), 'LineWidth', 1, 'color', [0.4940 0.1840 0.5560])
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
+legend('EKF','MRMKMCEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
 
 xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
+ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);
+set(gca, 'FontSize', 16)
+
 box on
-x2=subplot(3,1,2);
+
+x2 = subplot(3,1,2);
 hold on
-plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','black')
-plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
-plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
-plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-ylabel('roll ($\deg$)', 'interpreter','latex')
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+plot(t_eul, err_ekf(:,2), 'LineWidth', 1, 'color', 'g')
+plot(t_eul, err_ekf_tho(:,2), 'LineWidth', 1, 'color', 'black')
+plot(t_eul, err_eskf(:,2), 'LineWidth', 1, 'color', 'blue')
+plot(t_eul, err_gd(:,2), 'LineWidth', 1, 'color', 'm')
+plot(t_eul, err_doe(:,2), 'LineWidth', 1, 'color', [0.4940 0.1840 0.5560])
+ylabel('横滚角（°）', 'Interpreter', 'latex', 'FontSize', 16);
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
 
 xticks([])
-set(gca,'FontSize',16)
+set(gca, 'FontSize', 16)
+
 box on
-x3=subplot(3,1,3);
+
+x3 = subplot(3,1,3);
 hold on
-plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','black')
-plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
-plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
-plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+plot(t_eul, err_ekf(:,3), 'LineWidth', 1, 'color', 'g')
+plot(t_eul, err_ekf_tho(:,3), 'LineWidth', 1, 'color', 'black')
+plot(t_eul, err_eskf(:,3), 'LineWidth', 1, 'color', 'blue')
+plot(t_eul, err_gd(:,3), 'LineWidth', 1, 'color', 'm')
+plot(t_eul, err_doe(:,3), 'LineWidth', 1, 'color', [0.4940 0.1840 0.5560])
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
+ylabel('俯仰角（°）', 'Interpreter', 'latex', 'FontSize', 16);
 
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+xlabel('时间（秒）', 'interpreter', 'latex')
+
 box on
-linkaxes([x1,x2,x3],'x')
-xlim([0,t_eul(end)])
-set(gcf,'position',[100 100 750 600])
 
+linkaxes([x1,x2,x3], 'x')
+xlim([0, t_eul(end)])
+set(gcf, 'position', [100 100 750 600])
 
-xlabel('t');
-ylabel('pitch ($\deg$)', 'interpreter','latex')
 
 figure
 
-x1=subplot(3,1,1);
+x1 = subplot(3,1,1);
 hold on
-plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
-plot(t_eul,err_iekf_tho(:,1),'LineWidth',1,'color','black')
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-legend('EKF','EKF_Mag_Eliminate','IEKF_Mag_Eliminate','interpreter','latex','Orientation','horizontal')
-
+plot(t_eul, err_ekf(:,1), 'LineWidth', 1, 'color', 'g')
+plot(t_eul, err_ekf_tho(:,1), 'LineWidth', 1, 'color', 'blue')
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
+legend('EKF','MRE\_EKF','interpreter','latex','Orientation','horizontal')
 
 xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
+ylabel('航向角（°）', 'interpreter', 'latex')
+set(gca, 'FontSize', 16)
 box on
-x2=subplot(3,1,2);
+
+x2 = subplot(3,1,2);
 hold on
-plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','blue')
-plot(t_eul,err_iekf_tho(:,2),'LineWidth',1,'color','black')
-ylabel('roll ($\deg$)', 'interpreter','latex')
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+plot(t_eul, err_ekf(:,2), 'LineWidth', 1, 'color', 'g')
+plot(t_eul, err_ekf_tho(:,2), 'LineWidth', 1, 'color', 'blue')
+ylabel('横滚角（°）', 'interpreter', 'latex')
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
 
 xticks([])
-set(gca,'FontSize',16)
+set(gca, 'FontSize', 16)
 box on
-x3=subplot(3,1,3);
+
+x3 = subplot(3,1,3);
 hold on
-plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
-plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','blue')
-plot(t_eul,err_iekf_tho(:,3),'LineWidth',1,'color','black')
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+plot(t_eul, err_ekf(:,3), 'LineWidth', 1, 'color', 'g')
+plot(t_eul, err_ekf_tho(:,3), 'LineWidth', 1, 'color', 'blue')
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);
+xlabel('时间（秒）', 'interpreter', 'latex')
+ylabel('俯仰角（°）', 'interpreter', 'latex')
 box on
-linkaxes([x1,x2,x3],'x')
-xlim([0,t_eul(end)])
-set(gcf,'position',[100 100 750 600])
 
+linkaxes([x1,x2,x3], 'x')
+xlim([0, t_eul(end)])
+set(gcf, 'position', [100 100 750 600])
 
-xlabel('t');
-ylabel('pitch ($\deg$)', 'interpreter','latex')
 
 end

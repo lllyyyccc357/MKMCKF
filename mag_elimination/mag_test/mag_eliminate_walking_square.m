@@ -33,7 +33,7 @@ Err = zeros(length(time), 6);
 for t = 1:length(time)
     AHRS.Update(Gyroscope(t,:), Accelerometer(t,:), Magnetic(t,:));	% gyroscope units must be radians
     quat(t, :) = AHRS.Quaternion;
-    Err(t,:)=AHRS.Err;
+%     Err(t,:)=AHRS.Err;
 end
 % Plot algorithm output as Euler angles
 Quat_gd=Quat_eskf;
@@ -325,25 +325,28 @@ x1=subplot(3,1,1);
 hold on
 plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','r')
-plot(t_eul,err_cekf(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+% plot(t_eul,err_cekf(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
 plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,1),'linewidth',0.8)
-legend('EKf','EKf_tho','CEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+% legend('EKf','EKf_tho','CEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+legend('EKf','MRMKMCEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
 xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
+% ylabel('yaw ($\deg$)', 'interpreter','latex')
+ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);
 set(gca,'FontSize',16)
 box on
 x2=subplot(3,1,2);
 hold on
 plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','r')
-plot(t_eul,err_cekf(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+% plot(t_eul,err_cekf(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
 plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-ylabel('roll ($\deg$)', 'interpreter','latex')
+% ylabel('roll ($\deg$)', 'interpreter','latex')
+ylabel('横滚角（°）', 'Interpreter', 'latex', 'FontSize', 16);
 %plot(err_mkmc(:,2),'linewidth',0.8)
 xticks([])
 set(gca,'FontSize',16)
@@ -352,14 +355,17 @@ x3=subplot(3,1,3);
 hold on
 plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','r')
-plot(t_eul,err_cekf(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+% plot(t_eul,err_cekf(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
 plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,3),'linewidth',0.8)
 set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+% xlabel('time (s)', 'interpreter','latex')
+% ylabel('pitch ($\deg$)', 'interpreter','latex')
+xlabel('时间 (s)', 'interpreter','latex')
+ylabel('俯仰角（°）', 'Interpreter', 'latex', 'FontSize', 16);
+
 box on
 linkaxes([x1,x2,x3],'x')
 xlim([0,t_eul(end)])
