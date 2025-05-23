@@ -4,7 +4,7 @@ function walking_square()
 close all
 clear all
 addpath(genpath('../Data'));
-% addpath(genpath('../Orientation'));
+addpath(genpath('../Orientation'));
 load('SQUARE_S2.mat')
 load('IMU_SQUARE_S2.mat')
 % obtain the orientation
@@ -33,7 +33,7 @@ Err = zeros(length(time), 6);
 for t = 1:length(time)
     AHRS.Update(Gyroscope(t,:), Accelerometer(t,:), Magnetic(t,:));	% gyroscope units must be radians
     quat(t, :) = AHRS.Quaternion;
-%     Err(t,:)=AHRS.Err;
+    Err(t,:)=AHRS.Err;
 end
 % Plot algorithm output as Euler angles
 Quat_gd=Quat_eskf;
@@ -92,6 +92,16 @@ for i=1:length(qtho)
     Quat_thomas(i)=quaternion(qtho(i,4),qtho(i,1),qtho(i,2),qtho(i,3));
 end
 euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
+
+% Thomas elimination IEKF
+% [~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+Quat_thomas_IEKF=Quat_gd;
+for i=1:length(qtho_iekf)
+    Quat_thomas_IEKF(i)=qtho_iekf(:,i);
+end
+euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZXY','frame');
+
 
 %% CEKF
 [cekf,q1] = SAB_New_MKMC(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
@@ -233,15 +243,19 @@ act=compact(b_q.*q_imu_.*conj(a_q));
 % legend('OMC quaternion','IMU quaternion')
 
 %% orientation error comparison
-q_imu_ekf=Quat_ekf(index_imu,:);% smoother
+q_imu_ekf=Quat_ekf(index_imu,:);% ekf
 q_imu_ekf=q_imu_ekf(1:4:end,:); % sampling alginment 
 q_imu_ekf_mc=-b_q.*q_imu_ekf.*conj(a_q);
 
-q_imu_tho=Quat_thomas(index_imu,:);% smoother
+q_imu_tho=Quat_thomas(index_imu,:);% mr ekf
 q_imu_tho=q_imu_tho(1:4:end,:); % sampling alginment 
 q_imu_tho_mc=-b_q.*q_imu_tho.*conj(a_q);
 
-q_imu_cekf=Quat_cekf(index_imu,:);% smoother
+q_imu_tho_iekf=Quat_thomas_IEKF(index_imu,:);% 
+q_imu_tho_iekf=q_imu_tho_iekf(1:4:end,:); % sampling alginment 
+q_imu_tho_iekf_mc=-b_q.*q_imu_tho_iekf.*conj(a_q);
+
+q_imu_cekf=Quat_cekf(index_imu,:);% cekf
 q_imu_cekf=q_imu_cekf(1:4:end,:); % sampling alginment 
 q_imu_cekf_mc=-b_q.*q_imu_cekf.*conj(a_q);
 
@@ -261,7 +275,7 @@ q_imu_doe_mc=-b_q.*q_imu_doe.*conj(a_q);
 mc=eulerd(q_mc_q,'ZXY','frame');
 ekf=eulerd(q_imu_ekf_mc,'ZXY','frame');
 ekf_tho=eulerd(q_imu_tho_mc,'ZXY','frame');
-
+iekf_tho=eulerd(q_imu_tho_iekf_mc,'ZXY','frame');
 cekf=eulerd(q_imu_cekf_mc,'ZXY','frame');
 eskf=eulerd(q_imu_eskf_mc,'ZXY','frame');
 gd=eulerd(q_imu_gd_mc,'ZXY','frame');
@@ -270,6 +284,7 @@ doe=eulerd(q_imu_doe_mc,'ZXY','frame');
 %
 err_ekf=mc-ekf;
 err_ekf_tho=mc-ekf_tho;
+err_iekf_tho=mc-iekf_tho;
 err_cekf=mc-cekf;
 err_eskf=mc-eskf;
 err_gd=mc-gd;
@@ -287,6 +302,11 @@ for i=1:lenEuler
     err_ekf_tho(i,1)=err_ekf_tho(i,1)-360;
     elseif(err_ekf_tho(i,1)<-100)
     err_ekf_tho(i,1)=err_ekf_tho(i,1)+360;
+    end
+    if(err_iekf_tho(i,1)>100)
+    err_iekf_tho(i,1)=err_iekf_tho(i,1)-360;
+    elseif(err_iekf_tho(i,1)<-100)
+    err_iekf_tho(i,1)=err_iekf_tho(i,1)+360;
     end
     if(err_cekf(i,1)>100)
     err_cekf(i,1)=err_cekf(i,1)-360;
@@ -313,6 +333,7 @@ end
 %
 error.err_ekf_rms=rms(err_ekf);
 error.err_ekf_tho_rms=rms(err_ekf_tho);
+error.err_iekf_tho_rms=rms(err_iekf_tho);
 error.err_cekf_rms=rms(err_cekf);
 error.err_eskf_rms=rms(err_eskf);
 error.err_gd_rms=rms(err_gd);
@@ -323,50 +344,46 @@ figure
 t_eul=0:1/100:(length(err_ekf)-1)*1/100;
 x1=subplot(3,1,1);
 hold on
-plot(t_eul,err_ekf_tho(:,1),'LineWidth',2,'color','r')
 plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
-
-% plot(t_eul,err_cekf(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','r')
+plot(t_eul,err_cekf(:,1),'LineWidth',1,'color','y')
+plot(t_eul,err_iekf_tho(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
 plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,1),'linewidth',0.8)
-% legend('EKf','EKf_tho','CEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
-legend('DMKCEKF','EKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+legend('EKF','EKF_mag','CEKF','IEKF_mag','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
 xticks([])
-% ylabel('yaw ($\deg$)', 'interpreter','latex')
-ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);
+ylabel('yaw ($\deg$)', 'interpreter','latex')
 set(gca,'FontSize',16)
 box on
 x2=subplot(3,1,2);
 hold on
+plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
 plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','r')
-plot(t_eul,err_ekf(:,2),'LineWidth',2,'color','g')
-% plot(t_eul,err_cekf(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+plot(t_eul,err_cekf(:,2),'LineWidth',1,'color','y')
+plot(t_eul,err_iekf_tho(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
 plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-% ylabel('roll ($\deg$)', 'interpreter','latex')
-ylabel('横滚角（°）', 'Interpreter', 'latex', 'FontSize', 16);
+ylabel('roll ($\deg$)', 'interpreter','latex')
 %plot(err_mkmc(:,2),'linewidth',0.8)
 xticks([])
 set(gca,'FontSize',16)
 box on
 x3=subplot(3,1,3);
 hold on
-plot(t_eul,err_ekf_tho(:,3),'LineWidth',2,'color','r')
-plot(t_eul,err_ekf(:,3),'LineWidth',2,'color','g')
-% plot(t_eul,err_cekf(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
+plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','r')
+plot(t_eul,err_cekf(:,3),'LineWidth',1,'color','y')
+plot(t_eul,err_iekf_tho(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
 plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,3),'linewidth',0.8)
 set(gca,'FontSize',16)
-% xlabel('time (s)', 'interpreter','latex')
-% ylabel('pitch ($\deg$)', 'interpreter','latex')
-xlabel('时间 (s)', 'interpreter','latex')
-ylabel('俯仰角（°）', 'Interpreter', 'latex', 'FontSize', 16);
-
+xlabel('time (s)', 'interpreter','latex')
+ylabel('pitch ($\deg$)', 'interpreter','latex')
 box on
 linkaxes([x1,x2,x3],'x')
 xlim([0,t_eul(end)])
@@ -802,3 +819,145 @@ set(gcf,'position',[100 100 750 600])
 
 
 end
+
+function [P,M]=gyroscope_norm(mydata,freeAcc,index_imu,fs)
+
+%
+lshift=20;
+rshift=20;
+swduring=40;
+if(fs==100)
+   lshift=lshift/4;
+   rshift=rshift/4; 
+   swduring=swduring/4;
+end
+
+acc=mydata(:,2:4);
+gyro=mydata(:,5:7);
+mag=mydata(:,8:10);
+len=length(gyro);
+gyroNorm=zeros(len,1);
+gyroNormFlag=zeros(len,1);
+for i=1:len
+    gyroNorm(i)=norm(gyro(i,:));
+    accNorm(i)=norm(acc(i,:));
+    magNorm(i)=norm(mag(i,:));
+end
+% threshold
+Thes1=0.4;
+for i=2:len
+    if(gyroNorm(i)<=Thes1)
+        % static
+        gyroNormFlag(i)=0;
+    else
+        % move
+        gyroNormFlag(i)=1;
+    end
+end
+
+% correction
+indone=find(gyroNormFlag==1);
+gyroNormFlagc=gyroNormFlag;
+for i=2:length(indone)
+    if(indone(i)-indone(i-1)<swduring)
+        gyroNormFlagc(indone(i-1):indone(i))=1;
+    end
+end
+
+
+if(1)
+    %filter interval: exculde the impulsive move
+    gyroNormFlagcc=gyroNormFlagc;
+    inv=0;
+    gyroinv=[];
+    for i=2:len
+        if(gyroNormFlagcc(i-1)==0&&gyroNormFlagcc(i)==1)
+            inv=inv+1;
+            gyroinv(inv,1)=i; % start moving
+        elseif(gyroNormFlagcc(i-1)==1&&gyroNormFlagcc(i)==0)
+            gyroinv(inv,2)=i; % stop moving
+        end
+    end
+    % if move intervel is less than 20, setting it as moveless
+    for m=1:length(gyroinv)
+        if((gyroinv(m,2)-gyroinv(m,1))<20)
+        gyroNormFlagcc(gyroinv(m,1):gyroinv(m,2))=0;
+        end
+    end
+    gyroNormFlagc=gyroNormFlagcc;
+end
+
+% P gives the segmentations of moveless. The first column stores the start
+% of moveless while the second stores to end of moveless.
+n=length(gyroNormFlagc);
+j=1;
+for i=1:n
+    if i==1
+        % moveless
+        if gyroNormFlagc(i)==0
+            P(j,1)=i;
+        end
+    else
+        % moveless to moving
+        if gyroNormFlagc(i-1)==0&&gyroNormFlagc(i)==1
+            P(j,2)=i-lshift; % start move , 10 is specified shift region
+            j=j+1;
+        end
+        % moving to moveless
+        if gyroNormFlagc(i-1)==1&&gyroNormFlagc(i)==0
+            P(j,1)=i+rshift;  % end of move
+        end
+  
+    end
+end
+
+% recover the swing stance judgement
+[seg,col]=size(P);
+gyroNormFlagcc=gyroNormFlagc;
+gyroNormFlagcc(1:P(1,2))=0;
+gyroNormFlagcc(P(end,1):end)=0;
+for i=1:seg-1
+    swind=P(i,2):P(i+1,1); % swing index
+    stind=P(i+1,1):P(i+1,2); % stance index
+    gyroNormFlagcc(swind)=1;
+    gyroNormFlagcc(stind)=0;    
+end
+
+fs=400;
+t=0:1/fs:(len-1)*1/fs;
+tind=t(index_imu)-t(index_imu(1));
+%% obtain the magnetic stripe index
+P(end,end)=len;
+M=[];
+[seg,col]=size(P);
+for i=1:seg
+    ind=P(i,1):P(i,2);
+    mag_ind=magNorm(ind);
+    magst=max(mag_ind);
+    if(magst>60)
+         M=[M P(i,1)];
+    end
+end
+
+%% 
+figure
+hold on
+%plot(tind,freeAcc(index_imu,1),'blue','lineWidth',0.5)
+%plot(tind,freeAcc(index_imu,2),'black','lineWidth',0.5)
+%plot(tind,freeAcc(index_imu,3),'m','lineWidth',0.5)
+plot(tind,gyroNormFlagcc(index_imu)*8,'--red','lineWidth',1)
+plot(tind,gyroNorm(index_imu),'--g','lineWidth',2)
+plot(tind,magNorm/20,'lineWidth',2)
+scatter(tind(M),magNorm(M)/20,80,'filled')
+%plot(t,accNorm,'--m','lineWidth',2)
+xlabel('time (s)','interpreter','latex')
+ylabel('acc (m/s$^{2}$) or gyr (rad/s)','interpreter','latex')
+legend('gyroNormFlagcc','gyroNorm','magNorm/20','Point','interpreter','latex')
+set(gca,'fontSize',16)
+xlim([tind(1),tind(end)])
+ylim([-1 10])
+set(gcf,'position',[100 100 750 600])
+box on
+
+end
+
