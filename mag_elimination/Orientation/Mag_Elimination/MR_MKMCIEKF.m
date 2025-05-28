@@ -66,19 +66,6 @@ for i=1:length(t)-1
 %     Ppriori= L_k*Ppost*L_k'+Q;
     %Ppriori= Ppost+Q;
     % update
-        zma=[ax(i);ay(i);az(i)]; 
-        zma_prior=R_proi*g;
-        za=-(zma-zma_prior);
-         H_acc=vec2matrix(g);
-
-    %Ha=vec2matrix(g);
-    %Hm=vec2matrix(h);
-%     z=[za;zm];
-    
-%     this is MKMC part
-    er_a=br_a\za;
-        Er_a(i,:)=za;
-    Ernorm_a(i,:)=er_a;
     cnt=6;
     num=cnt;
 
@@ -89,8 +76,8 @@ for i=1:length(t)-1
         X_tlast=X_t; 
        end
         zma=[ax(i);ay(i);az(i)]; 
-        zma_prior=X_tlast*g;
-        za=-(zma-zma_prior);
+
+        za=(X_tlast*zma-g);
          H_acc=vec2matrix(g);
 
         er_a=br_a\za;
@@ -118,22 +105,6 @@ for i=1:length(t)-1
      if (rem(i,4)==1)
         Pprioi=Ppost;
         R_proi=R_post;
-        q=dcm2quat(R_proi);
-        q_e2s_gyr=[q(2);q(3);q(4);q(1)];
-        q_e2s_gyr=q_e2s_gyr/QuaternionsNorm(q_e2s_gyr);
-        q_s2e_gyr=QuaternionsConj(q_e2s_gyr);
-        q_s_acc=QuaternionsProd(q_s2e_gyr,QuaternionsProd([0;0;1;0],q_e2s_gyr));
-        r_s_acc=q_s_acc(1:3,:);
-        m=[hx(i);hy(i);hz(i)];
-        m_hat_s=m-dot(m,r_s_acc)*r_s_acc;
-        m_hat_s=m_hat_s/norm(m_hat_s);
-        zmm=m_hat_s;
-        zmm_prior=R_proi*h;
-        zm=-(zmm-zmm_prior);
-        H_mag=vec2matrix(h);
-        er_m=br_m\zm;
-        Er_m(i,:)=zm;
-        Ernorm_m(i,:)=er_m;
         cnt=4;
         num=cnt;
     
@@ -153,8 +124,8 @@ for i=1:length(t)-1
         m_hat_s=m-dot(m,r_s_acc)*r_s_acc;
         m_hat_s=m_hat_s/norm(m_hat_s);
         zmm=m_hat_s;
-        zmm_prior=R_proi*h;
-        zm=-(zmm-zmm_prior);
+
+        zm=(X_tlast*zmm-h);
         H_mag=vec2matrix(h);
     %          Hm=vec2matrix(h);
             %Ha=vec2matrix(g);
@@ -173,7 +144,7 @@ for i=1:length(t)-1
             S_mag=H_mag*Ppriori*H_mag'+R_1_mag;
             K_mag=Ppriori*H_mag'*inv(S_mag);
            num=num-1;
-               X_t=expm(-vec2matrix(K_mag*zm))*R_proi;
+               X_t=expm(vec2matrix(K_mag*zm))*R_proi;
                thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
                THE_mag(i,cnt-num)=thresh;
                if(thresh<1e-25)

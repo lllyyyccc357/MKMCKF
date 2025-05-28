@@ -59,28 +59,28 @@ for i=1:length(t)-1
 
     R_proi=R_post*F; % 
     L_k=R_post;
-    Q=L_k*Q_k*L_k'; % L_k*L_k'=eye(3)
+    Q=(L_k)*Q_k*(L_k)'; % L_k*L_k'=eye(3)
     Ppriori= Ppost+Q; %
 %     Ppriori= L_k*Ppost*L_k'+Q;
     %Ppriori= Ppost+Q;
     % update
-    zma=[ax(i);ay(i);az(i)]; 
-    zma_prior=R_proi*g; %R_proi'=C
-    zmm=[hx(i);hy(i);hz(i)]; 
-    zmm_prior=R_proi*h;
-    za=-(zma-zma_prior);
-    zm=-(zmm-zmm_prior);
-     Ha=vec2matrix(g);
-     Hm=vec2matrix(h);
+%      zma=[ax(i);ay(i);az(i)]; 
+%     zma_prior=R_proi*g; %R_proi'=C
+%     zmm=[hx(i);hy(i);hz(i)]; 
+%     zmm_prior=R_proi*h;
+%     za=(zma-zma_prior);
+%     zm=(zmm-zmm_prior);
+%      Ha=-vec2matrix(g);
+%      Hm=-vec2matrix(h);
     %Ha=vec2matrix(g);
     %Hm=vec2matrix(h);
-    z=[za;zm];
+%     z=[za;zm];
     
 %     this is MKMC part
-    er=br\z;
-        Er(i,:)=z;
-    Ernorm(i,:)=er;
-    cnt=6;
+%     er=br\z;
+%         Er(i,:)=z;
+%     Ernorm(i,:)=er;
+    cnt=5;
     num=cnt;
 
      while(num>0)
@@ -90,11 +90,11 @@ for i=1:length(t)-1
         X_tlast=X_t; 
        end
     zma=[ax(i);ay(i);az(i)]; 
-    zma_prior=R_proi'*g; %R_proi'=C
+    
     zmm=[hx(i);hy(i);hz(i)]; 
-    zmm_prior=R_proi'*h;
-    za=-(zma-zma_prior);
-    zm=-(zmm-zmm_prior);
+    
+    za=(X_tlast*zma-g);
+    zm=(X_tlast*zmm-h);
      Ha=vec2matrix(g);
      Hm=vec2matrix(h);
         %Ha=vec2matrix(g);
@@ -114,8 +114,8 @@ for i=1:length(t)-1
         S=H*Ppriori*H'+R_1;
         K=Ppriori*H'*inv(S);
        num=num-1;
-           X_t=expm(vec2matrix(K*z))*R_proi;
-           thresh=norm(X_t-X_tlast)/(norm(X_t)+1e-3);
+       X_t=expm(vec2matrix(K*z))*R_proi;
+       thresh=norm(X_t-X_tlast)/(norm(X_t)+1e-3);
 %            if(thresh<1e-20)
 %              break;
 %            end
