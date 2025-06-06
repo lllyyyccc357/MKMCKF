@@ -4,7 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_disturb_static_3.mat')
+load('mag_disturb_static_2.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -23,7 +23,7 @@ end
 MagSth=45;
 ahrs=orientation_estimation_ahrs_fun_xsens(Accelerometer,Gyroscope,Magnetic,fs,MagSth);
 Quat_eskf=ahrs.Quat;
-euler_eskf=eulerd(Quat_eskf,'ZYX','frame');
+euler_eskf=eulerd(Quat_eskf,'ZXY','frame');
 %% MadgwickAHRS
 AHRS = MadgwickAHRS('SamplePeriod', 1/fs, 'Beta', 0.1);
 time=0:1/fs:1/fs*(len-1);
@@ -39,7 +39,7 @@ Quat_gd=Quat_eskf;
 for i=1:length(quat)
 Quat_gd(i)=quaternion(quat(i,1),quat(i,2),quat(i,3),quat(i,4));
 end
-euler_gd=eulerd(Quat_gd,'ZYX','frame');
+euler_gd=eulerd(Quat_gd,'ZXY','frame');
 %% DOE
 tauAcc= 5;
 tauMag= 10;
@@ -51,7 +51,7 @@ Quat_doe=Quat_gd;
 for i=1:length(quat_doe)
 Quat_doe(i)=quaternion(quat_doe(i,:));
 end
-euler_doe=eulerd(Quat_doe,'ZYX','frame');
+euler_doe=eulerd(Quat_doe,'ZXY','frame');
 
 
 %% EKF
@@ -67,7 +67,7 @@ stdMag  = 0.02;          % (a.u.)
 for i=1:length(q1)
     Quat_ekf(i)=quaternion(q1(i,4),q1(i,1),q1(i,2),q1(i,3));
 end
-euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
+euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 % %% EK smoother
 % % ekfb=SAB_New_MKMCS(ekf,IMU.Acceleration,IMU.Magnetic);
 % % q1=ekfb.stateb';
@@ -80,8 +80,8 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=2.5;
-sigma_mag_init=2.3;
+sigma_acc_init=1.5;
+sigma_mag_init=1.2;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -93,7 +93,7 @@ Quat_thomas=Quat_gd;
 for i=1:length(qtho)
     Quat_thomas(i)=quaternion(qtho(i,4),qtho(i,1),qtho(i,2),qtho(i,3));
 end
-euler_thomas=eulerd(Quat_thomas,'ZYX','frame');
+euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
 
 [~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 % [~,qtho_iekf]=MR_MKMCLIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
@@ -104,7 +104,7 @@ Quat_thomas_IEKF=Quat_gd;
 for i=1:length(qtho_iekf)
     Quat_thomas_IEKF(i)=qtho_iekf(:,i);
 end
-euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZYX','frame');
+euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZXY','frame');
 
 
 % IEKF
@@ -122,7 +122,13 @@ Quat_iekf=Quat_gd;
 for i=1:length(q_iekf)
     Quat_IEKF(i)=q_iekf(:,i);
 end
-euler_IEKF=eulerd(Quat_iekf,'ZYX','frame');
+euler_IEKF=eulerd(Quat_iekf,'ZXY','frame');
+
+Quat_xsens=Quat_gd;
+for i=1:length(Quat_xsens)
+    Quat_xsens(i)=quaternion(IMU.quat(i,1),IMU.quat(i,2),IMU.quat(i,3),IMU.quat(i,4));
+end
+euler_xsens=eulerd(Quat_xsens,'ZXY','frame');
 
 q_imu_ekf=Quat_ekf;
 q_imu_iekf=Quat_iekf;
@@ -131,22 +137,22 @@ q_imu_tho_iekf=Quat_thomas_IEKF;
 q_imu_eskf=Quat_eskf;% eskf
 q_imu_gd=Quat_gd;% gd
 q_imu_doe=Quat_doe;% doe
+q_imu_xsens=Quat_xsens;% doe
 
 
-
-
-ekf=eulerd(q_imu_ekf,'ZYX','frame');
-iekf=eulerd(q_imu_iekf,'ZYX','frame');
-ekf_tho=eulerd(q_imu_tho,'ZYX','frame');
-iekf_tho=eulerd(q_imu_tho_iekf,'ZYX','frame');
-eskf=eulerd(q_imu_eskf,'ZYX','frame');
-gd=eulerd(q_imu_gd,'ZYX','frame');
-doe=eulerd(q_imu_doe,'ZYX','frame');
+ekf=eulerd(q_imu_ekf,'ZXY','frame');
+iekf=eulerd(q_imu_iekf,'ZXY','frame');
+ekf_tho=eulerd(q_imu_tho,'ZXY','frame');
+iekf_tho=eulerd(q_imu_tho_iekf,'ZXY','frame');
+eskf=eulerd(q_imu_eskf,'ZXY','frame');
+gd=eulerd(q_imu_gd,'ZXY','frame');
+doe=eulerd(q_imu_doe,'ZXY','frame');
 
 
 % 初始状态：ekf 前 20 个样本的均值
 mean_value_ekf = mean(ekf(1:3,:), 1);
 
+mean_value_xsens=mean(euler_xsens(1:3,:), 1);
 % 构造一个和每组数据同尺寸的初始状态矩阵
 init_state_ekf = repmat(mean_value_ekf, size(ekf, 1), 1);
 init_state_iekf = repmat(mean_value_ekf, size(ekf, 1), 1);
@@ -155,7 +161,7 @@ init_state_iekf_tho = repmat(mean_value_ekf, size(ekf_tho, 1), 1);
 init_state_eskf = repmat(mean_value_ekf, size(eskf, 1), 1);
 init_state_gd = repmat(mean_value_ekf, size(gd, 1), 1);
 init_state_doe = repmat(mean_value_ekf, size(doe, 1), 1);
-
+init_state_xsens = repmat(mean_value_xsens, size(doe, 1), 1);
 % 误差计算
 err_ekf = init_state_ekf - ekf;
 err_iekf = init_state_iekf - iekf;
@@ -164,7 +170,7 @@ err_iekf_tho = init_state_iekf_tho - iekf_tho;
 err_eskf = init_state_eskf - eskf;
 err_gd = init_state_gd - gd;
 err_doe = init_state_doe - doe;
-
+err_xsens = init_state_xsens - euler_xsens;
 % yaw error correction
 lenEuler=length(err_ekf);
 for i=1:lenEuler
@@ -211,7 +217,7 @@ for i=1:lenEuler
     err_ekf(i,3)=err_ekf(i,3)+360;
     end
     if(err_iekf(i,3)>100)
-    err_ekf(i,3)=err_iekf(i,3)-360;
+    err_iekf(i,3)=err_iekf(i,3)-360;
     elseif(err_iekf(i,3)<-100)
     err_iekf(i,3)=err_iekf(i,3)+360;
     end
@@ -251,17 +257,18 @@ error.err_iekf_tho_rms=rms(err_iekf_tho);
 error.err_eskf_rms=rms(err_eskf);
 error.err_gd_rms=rms(err_gd);
 error.err_doe_rms=rms(err_doe);
-
+error.err_xsens_rms=rms(err_xsens);
 error
 figure
 t_eul=0:1/400:(length(err_ekf)-1)*1/400;
 MagNorm_init=mean(Mag_norm(1,1:20));
+MagNorm_max=max(Mag_norm);
 plot(t_eul,Mag_norm,'LineWidth',1,'color','g')
 xlabel('t');
 ylabel('Magnetic Norm', 'interpreter','latex')
 hold on
 % 设置阈值
-threshold = MagNorm_init+3;
+threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
 
 x_first= t_eul(find(Mag_norm > threshold, 1, 'first'));
 x_last = t_eul(find(Mag_norm > threshold, 1, 'last'));
@@ -272,7 +279,7 @@ figure
 
 x1=subplot(3,1,1);
 hold on
-plot(t_eul,err_iekf_tho(:,1),'LineWidth',1,'color','black')
+plot(t_eul,err_iekf_tho(:,1),'LineWidth',2,'color','black')
 plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
 % plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_iekf(:,1),'LineWidth',1,'color','blue')
@@ -290,7 +297,7 @@ set(gca,'FontSize',16)
 box on
 x2=subplot(3,1,2);
 hold on
-plot(t_eul,err_iekf_tho(:,2),'LineWidth',1,'color','black')
+plot(t_eul,err_iekf_tho(:,2),'LineWidth',2,'color','black')
 plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
 % plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_iekf(:,2),'LineWidth',1,'color','blue')
@@ -306,7 +313,7 @@ set(gca,'FontSize',16)
 box on
 x3=subplot(3,1,3);
 hold on
-plot(t_eul,err_iekf_tho(:,3),'LineWidth',1,'color','black')
+plot(t_eul,err_iekf_tho(:,3),'LineWidth',2,'color','black')
 plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
 % plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_iekf(:,3),'LineWidth',1,'color','blue')
