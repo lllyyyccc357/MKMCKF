@@ -4,7 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_disturb_static_4.mat')
+load('mag_disturb_static_3.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -290,7 +290,7 @@ set(gca,'FontSize',16)
 box on
 x2=subplot(3,1,2);
 hold on
-plot(t_eul,err_iekf_tho(:,1),'LineWidth',1,'color','black')
+plot(t_eul,err_iekf_tho(:,2),'LineWidth',1,'color','black')
 plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
 % plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_iekf(:,2),'LineWidth',1,'color','blue')
@@ -306,7 +306,7 @@ set(gca,'FontSize',16)
 box on
 x3=subplot(3,1,3);
 hold on
-plot(t_eul,err_iekf_tho(:,1),'LineWidth',1,'color','black')
+plot(t_eul,err_iekf_tho(:,3),'LineWidth',1,'color','black')
 plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
 % plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_iekf(:,3),'LineWidth',1,'color','blue')
