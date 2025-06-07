@@ -199,7 +199,7 @@ for i=1:len
    
 end
 
-elu=eulerd(Quat,'YXZ','frame');
+elu=eulerd(Quat,'ZXY','frame');
 out.Quat=Quat;
 out.elu=elu;
 out.acc=acc;
