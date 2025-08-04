@@ -89,15 +89,15 @@ end
 
 % recover the swing stance judgement
 [seg,col]=size(P);
-gyroNormFlagcc=gyroNormFlagc;
-gyroNormFlagcc(1:P(1,2))=0;
-gyroNormFlagcc(P(end,1):end)=0;
-for i=1:seg-1
-    swind=P(i,2):P(i+1,1); % swing index
-    stind=P(i+1,1):P(i+1,2); % stance index
-    gyroNormFlagcc(swind)=1;
-    gyroNormFlagcc(stind)=0;    
-end
+% gyroNormFlagcc=gyroNormFlagc;
+% gyroNormFlagcc(1:P(1,2))=0;
+% gyroNormFlagcc(P(end,1):end)=0;
+% for i=1:seg-1
+%     swind=P(i,2):P(i+1,1); % swing index
+%     stind=P(i+1,1):P(i+1,2); % stance index
+%     gyroNormFlagcc(swind)=1;
+%     gyroNormFlagcc(stind)=0;    
+% end
 
 fs=400;
 t=0:1/fs:(len-1)*1/fs;

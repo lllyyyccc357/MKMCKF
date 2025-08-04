@@ -1,14 +1,19 @@
-function walking_square()
+function mag_eliminate_walking_square()
 
-% foot trajectory estimation of stair walking 1：yes yes
+
 close all
 clear all
 addpath(genpath('../Data'));
-% addpath(genpath('../Orientation'));
-load('SQUARE_S2.mat')
-load('IMU_SQUARE_S2.mat')
+addpath(genpath('../Orientation'));
+name="circle-nodis-slow1";
+
+IMU_data=name+"-IMU.mat";
+Cap_data=name+"-xsens4.mat";
+
+load(IMU_data)
+load(Cap_data)
 % obtain the orientation
-fs=IMU.fs;
+fs=IMU.Acc_fs;
 sample_freq=fs;
 Accelerometer=-IMU.Acceleration;
 Gyroscope=IMU.Gyroscope;
@@ -68,6 +73,39 @@ for i=1:length(q1)
     Quat_ekf(i)=quaternion(q1(i,4),q1(i,1),q1(i,2),q1(i,3));
 end
 euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
+
+%% VQF
+% 1. 采样周期
+Ts = 1 / sample_freq;        % 例如 fs = 100 Hz 则 Ts = 0.01
+% 2. 初始化 VQF 对象（只用默认参数）
+vqf = VQF(Ts);
+% 3. 批量更新并获取结果
+out = vqf.updateBatch(Gyroscope, Accelerometer, Magnetic);
+% 4. 四元数和其他量
+quat9D      = out.quat9D;      % Nx4 矩阵：含磁校正的 9D 姿态
+Quat_vqf=Quat_gd;
+for i=1:length(quat9D)
+    Quat_vqf(i)=quaternion(quat9D(i,1),quat9D(i,2),quat9D(i,3),quat9D(i,4));
+end
+euler_vqf=eulerd(Quat_vqf,'ZXY','frame');
+
+%% xsens
+Quat_xsens=Quat_gd;
+for i=1:length(Quat_xsens)
+    Quat_xsens(i)=quaternion(IMU.quat(i,1),IMU.quat(i,2),IMU.quat(i,3),IMU.quat(i,4));
+end
+euler_xsens=eulerd(Quat_xsens,'ZXY','frame');
+
+%% IEKF
+
+[~,q_iekf]=RIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag);
+
+Quat_iekf=Quat_gd;
+for i=1:length(q_iekf)
+    Quat_iekf(i)=q_iekf(:,i);
+end
+euler_IEKF=eulerd(Quat_iekf,'ZXY','frame');
+
 %% EK smoother
 % ekfb=SAB_New_MKMCS(ekf,IMU.Acceleration,IMU.Magnetic);
 % q1=ekfb.stateb';
@@ -79,13 +117,15 @@ euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 % ekfb=ekf;
 % euler_eks=euler_ekf;
 %% Thomas elimination
-sigma_acc_init=2.3;
-sigma_mag_init=1.7;
+sigma_acc_init=0.5;
+sigma_mag_init=5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
+t=0:1/fs:1/fs*(len-1);
 stdGyro = 0.001*5;                % (rad/s)
 stdAcc = 0.0981;           % (g)
 stdMag  = 0.02;          % (a.u.)
+% DMKCEKF
 [ekf_tho,qtho]=Multi_Rate_Thomas_eliminateMag_EKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_thomas=Quat_gd;
 for i=1:length(qtho)
@@ -93,6 +133,17 @@ for i=1:length(qtho)
 end
 euler_thomas=eulerd(Quat_thomas,'ZXY','frame');
 
+% DMKCIEKF
+[~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MR_MKMCLIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+
+
+Quat_thomas_IEKF=Quat_gd;
+for i=1:length(qtho_iekf)
+    Quat_thomas_IEKF(i)=qtho_iekf(:,i);
+end
+euler_thomas_IEKF=eulerd(Quat_thomas_IEKF,'ZXY','frame');
 %% CEKF
 [cekf,q1] = SAB_New_MKMC(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 Quat_cekf=Quat_gd;
@@ -100,7 +151,7 @@ for i=1:length(q1)
     Quat_cekf(i)=quaternion(q1(i,4),q1(i,1),q1(i,2),q1(i,3));
 end
 euler_cekf=eulerd(Quat_cekf,'ZXY','frame');
-% %% CEK smoother
+%% CEK smoother
 % ekfb=SAB_New_MKMCS(cekf,IMU.Acceleration,IMU.Magnetic);
 % q1=ekfb.stateb';
 % Quat_ceks=Quat_gd;
@@ -108,95 +159,85 @@ euler_cekf=eulerd(Quat_cekf,'ZXY','frame');
 %     Quat_ceks(i)=quaternion(q1(i,4),q1(i,1),q1(i,2),q1(i,3));
 % end
 % euler_ceks=eulerd(Quat_ceks,'ZXY','frame');
+
+
 %% compare the orientation error of different method : rough comparison
-Euler=imuMC.Euler;
-euler_imu=euler_cekf;
-t=0:1/fs:1/fs*(length(Accelerometer)-1);
-% findpeak method
-cur1=Euler(:,2);
-cur2=-euler_imu(:,2);
-[pks1,locs1] = findpeaks(cur1,'MinPeakHeight',10,'MinPeakDistance',100);
-[pks2,locs2] = findpeaks(cur2,'MinPeakHeight',10,'MinPeakDistance',100);
-% 
-%t_offset=t(locs2(1))-imuMC.t(locs1(1));
-t_offset=t(locs2(1:3))-(imuMC.t(locs1(1:3)))'; % average the time gap of three peaks
-t_offset=mean(t_offset);
-imuMC.t=imuMC.t+t_offset;   % time alignment: this is important
-% 
-% figure
-% x1=subplot(3,1,1);
-% hold on
-% plot(imuMC.t,Euler(:,1)+102.5,'linewidth',0.6)
-% plot(t,-euler_imu(:,1),'linewidth',0.6)
-% plot(t,-euler_mkmc(:,1),'linewidth',0.6)
-% plot(t,-euler_gd(:,1),'linewidth',0.6)
-% legend('Vicon','EKS','MKMC','GD')
-% x2=subplot(3,1,2);
-% hold on
-% plot(imuMC.t,Euler(:,2)-0.8,'linewidth',0.6)
-% plot(t,-euler_imu(:,2),'linewidth',0.6)
-% plot(t,-euler_mkmc(:,2),'linewidth',0.6)
-% plot(t,-euler_gd(:,2),'linewidth',0.6)
-% plot(imuMC.t(locs1),pks1-0.8,'o')
-% plot(t(locs2),pks2,'<')
-% x3=subplot(3,1,3);
-% hold on
-% plot(imuMC.t,Euler(:,3)-92,'linewidth',0.6)
-% plot(t,euler_imu(:,3),'linewidth',0.6)
-% plot(t,euler_mkmc(:,3),'linewidth',0.6)
-% plot(t,euler_gd(:,3),'linewidth',0.6)
-% linkaxes([x1,x2,x3],'x')
-%% plot the sensor norm readings
+Euler=imuMC.euler_deg;
+euler_imu=euler_thomas_IEKF;
 
-t_ss=3.2;
-t_ee=24.4;
-
-figure
+figure 
+x1=subplot(3,1,1);
 hold on
-x1=subplot(2,1,1);
-plot(t-t_ss,Mag_norm,'linewidth',2,'color','red')
-ylabel('Mag ($\mu T$)','interpreter','latex')
-legend('Mag norm')
+plot(Euler(:,1),'LineWidth',1,'color','r')
+plot(euler_imu(:,1),'LineWidth',1,'color','g')
+legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
 xticks([])
-ylim([32 50])
-set(gca,'fontsize',18)
-x2=subplot(2,1,2);
-plot(t-t_ss,Acc_norm,'linewidth',2,'color','red')
-legend('Acc norm')
-xlabel('time (s)','Interpreter','latex')
-ylabel('Acc ($m/s^2$)','interpreter','latex')
-set(gca,'fontsize',18)
-linkaxes([x1,x2],'x')
-xlim([0,t_ee-t_ss])
+ylabel('yaw ($\deg$)', 'interpreter','latex')
+set(gca,'FontSize',16)
+box on
+x2=subplot(3,1,2);
+hold on
+plot(Euler(:,2),'LineWidth',1,'color','r')
+plot(euler_imu(:,2),'LineWidth',1,'color','g')
+xticks([])
+set(gca,'FontSize',16)
+box on
+x3=subplot(3,1,3);
+hold on
+plot(Euler(:,3),'LineWidth',1,'color','r')
+plot(euler_imu(:,3),'LineWidth',1,'color','g')
+set(gca,'FontSize',16)
+xlabel('time (s)', 'interpreter','latex')
+ylabel('pitch ($\deg$)', 'interpreter','latex')
 
-%% 
-% stance and swing detection
-mydata=[t',Accelerometer,Gyroscope,Magnetic];
-P=gyroscope_norm(mydata,Accelerometer,1:len,fs); % the moveing interval except the first row
-% trajectory obtainment
-t_s=t(P(1,2)-200); % left shift 0.5s
-t_e=t(P(end,1)+200); % right shift 0.5s
-t_s=round(t_s,1);
-t_e=round(t_e,1);
+% angle1 = input('the angle chosen for curl1: ');
+% angle2 = input('the angle chosen for curl2: ');
+% flag=input('the flag is: ');
+% findpeakMatrix=input('the matrix for findpeakMatrix: ');
+angle1 = 3;
+angle2 = 3;
+flag1=1;
+flag2=-1;
+findpeakMatrix=[25 100;42 100];
+% findpeak method
+cur1=flag1*Euler(:,angle1);
+cur2=flag2*euler_imu(:,angle2);
+% [pks1,locs1] = findpeaks(cur1,'MinPeakHeight',10,'MinPeakDistance',100);
+% [pks2,locs2] = findpeaks(cur2,'MinPeakHeight',10,'MinPeakDistance',100);
+[pks1,locs1] = findpeaks(cur1,'MinPeakHeight',findpeakMatrix(1,1),'MinPeakDistance',findpeakMatrix(1,2))
+[pks2,locs2] = findpeaks(cur2,'MinPeakHeight',findpeakMatrix(2,1),'MinPeakDistance',findpeakMatrix(2,2))
+% 
+
+t=0:1/fs:1/fs*(length(Accelerometer)-1);
+t_offset=t(locs2(1))-imuMC.t(locs1(1));
+% t_offset=t(locs2(1:2))-(imuMC.t(locs1(1:2)))'; % average the time gap of three peaks
+t_offset=mean(t_offset)
+imuMC.t=imuMC.t+t_offset-14*0.0025;   % time alignment: this is important
+t_s=max(min(imuMC.t),0);
+t_e=max(imuMC.t);
 clear index_tracker index_imu
 index_tracker=find(imuMC.t>=t_s&imuMC.t<=t_e); % index for tracker
 index_tracker=index_tracker';
 index_imu=find(t>=t_s&t<=t_e); % index for imu
-% alignment
-if(length(index_imu)>=4*length(index_tracker)) % unify the sampling time
-    index_imu(4*length(index_tracker)+1:end)=[];
-else
-    index_tracker(end)=[];
-    index_imu(4*length(index_tracker)+1:end)=[];
+if length(index_tracker) > length(index_imu)
+    index_tracker = index_tracker(1:length(index_imu));
+elseif length(index_imu) > length(index_tracker)
+    index_imu = index_imu(1:length(index_tracker));
 end
+
+
+% alignment
 q_mc_q=imuMC.quat(index_tracker,:); %
 q_mc_q=quaternion(q_mc_q);%
-q_imu_q=Quat_cekf(index_imu,:);% using the ceks as the baseline
-q_imu_q=q_imu_q(1:4:end,:); % sampling alginment 
+q_imu_q=Quat_thomas_IEKF(index_imu,:);% using the ceks as the baseline
+euler_mc=eulerd(q_mc_q,'ZXY','frame');
+euler_imu=eulerd(q_imu_q,'ZXY','frame');
+
+% q_imu_q=q_imu_q(1:4:end,:); % sampling alginment 
 %% alignment optimization
-euler_kf=[-108,0,-180]/180*pi; % init
+euler_kf=[0,0,-180]/180*pi; % init
 q_kf1 = eul2quat(euler_kf,'ZYX'); % b_q initilization
-euler_kf=[0,0,-90]/180*pi;
+euler_kf=[90+7,180,1]/180*pi;
 q_kf2 = eul2quat(euler_kf,'ZYX'); % a_q initilization
 q_kf_q1=quaternion(q_kf1);
 q_kf_q2=quaternion(q_kf2);
@@ -211,7 +252,12 @@ x0(1:4)=q_mc_right; % a_q  =  q_kf_q1
 x0(5:8)=q_imu_left; % b_q = q_kf_q2
 fun=@nonlinear_func;
 mycon=@constrains;
-options = optimoptions('fmincon','Display','iter');
+options = optimoptions('fmincon', ...
+    'Display', 'iter', ...
+    'FunctionTolerance', 1e-30, ...
+    'StepTolerance', 1e-30, ...
+    'MaxIterations', 1000, ...
+    'MaxFunctionEvaluations', 300);
 A = [];
 b = [];
 Aeq = [];
@@ -219,13 +265,14 @@ beq = [];
 lb = [];
 ub = [];
 x = fmincon(fun,x0,A,b,Aeq,beq,lb,ub,mycon,options);
+
 display(x);
 a_q=quaternion(x(1:4)); % obtain the result
 a_q=normalize(a_q);
 b_q=quaternion(x(5:8)); % obtain the result
 b_q=normalize(b_q);
-tar=compact(q_mc_);
-act=compact(b_q.*q_imu_.*conj(a_q));
+% tar=compact(q_mc_);
+% act=compact(b_q.*q_imu_.*conj(a_q));
 % figure
 % plot(tar,'linewidth',0.5)
 % hold on
@@ -233,48 +280,125 @@ act=compact(b_q.*q_imu_.*conj(a_q));
 % legend('OMC quaternion','IMU quaternion')
 
 %% orientation error comparison
-q_imu_ekf=Quat_ekf(index_imu,:);% smoother
-q_imu_ekf=q_imu_ekf(1:4:end,:); % sampling alginment 
+% q_imu_ekf=Quat_ekf;
+% q_imu_iekf=Quat_iekf;
+% q_imu_tho=Quat_thomas;
+% q_imu_tho_iekf=Quat_thomas_IEKF;
+% q_imu_eskf=Quat_eskf;% eskf
+% q_imu_gd=Quat_gd;% gd
+% q_imu_doe=Quat_doe;% doe
+% q_imu_vqf=Quat_vqf;
+% q_imu_xsens=Quat_xsens;% doe
+
+q_imu_ekf=Quat_ekf(index_imu,:);
+% q_imu_ekf=q_imu_ekf(1:4:end,:); % sampling alginment 
 q_imu_ekf_mc=-b_q.*q_imu_ekf.*conj(a_q);
 
-q_imu_tho=Quat_thomas(index_imu,:);% smoother
-q_imu_tho=q_imu_tho(1:4:end,:); % sampling alginment 
+q_imu_tho=Quat_thomas(index_imu,:);
+% q_imu_tho=q_imu_tho(1:4:end,:); % sampling alginment 
 q_imu_tho_mc=-b_q.*q_imu_tho.*conj(a_q);
 
-q_imu_cekf=Quat_cekf(index_imu,:);% smoother
-q_imu_cekf=q_imu_cekf(1:4:end,:); % sampling alginment 
+q_imu_iekf=Quat_iekf(index_imu,:);
+% q_imu_ekf=q_imu_ekf(1:4:end,:); % sampling alginment 
+q_imu_iekf_mc=-b_q.*q_imu_iekf.*conj(a_q);
+
+q_imu_tho_iekf=Quat_thomas_IEKF(index_imu,:);
+% q_imu_tho=q_imu_tho(1:4:end,:); % sampling alginment 
+q_imu_tho_iekf_mc=-b_q.*q_imu_tho_iekf.*conj(a_q);
+
+q_imu_cekf=Quat_cekf(index_imu,:);
+% q_imu_cekf=q_imu_cekf(1:4:end,:); % sampling alginment 
 q_imu_cekf_mc=-b_q.*q_imu_cekf.*conj(a_q);
 
 q_imu_eskf=Quat_eskf(index_imu,:);% eskf
-q_imu_eskf=q_imu_eskf(1:4:end,:); % sampling alginment 
+% q_imu_eskf=q_imu_eskf(1:4:end,:); % sampling alginment 
 q_imu_eskf_mc=-b_q.*q_imu_eskf.*conj(a_q);
 
 q_imu_gd=Quat_gd(index_imu,:);% gd
-q_imu_gd=q_imu_gd(1:4:end,:); % sampling alginment 
+% q_imu_gd=q_imu_gd(1:4:end,:); % sampling alginment 
 q_imu_gd_mc=-b_q.*q_imu_gd.*conj(a_q);
 
 q_imu_doe=Quat_doe(index_imu,:);% doe
-q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
+% q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_doe_mc=-b_q.*q_imu_doe.*conj(a_q);
+
+q_imu_vqf=Quat_vqf(index_imu,:);% doe
+% q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
+q_imu_vqf_mc=-b_q.*q_imu_vqf.*conj(a_q);
+
+q_imu_xsens=Quat_xsens(index_imu,:);% doe
+% q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
+q_imu_xsens_mc=-b_q.*q_imu_xsens.*conj(a_q);
 
 
 mc=eulerd(q_mc_q,'ZXY','frame');
 ekf=eulerd(q_imu_ekf_mc,'ZXY','frame');
+iekf=eulerd(q_imu_iekf_mc,'ZXY','frame');
 ekf_tho=eulerd(q_imu_tho_mc,'ZXY','frame');
-
+iekf_tho=eulerd(q_imu_tho_iekf_mc,'ZXY','frame');
 cekf=eulerd(q_imu_cekf_mc,'ZXY','frame');
 eskf=eulerd(q_imu_eskf_mc,'ZXY','frame');
 gd=eulerd(q_imu_gd_mc,'ZXY','frame');
 doe=eulerd(q_imu_doe_mc,'ZXY','frame');
-
+euler_vqf=eulerd(q_imu_vqf_mc,'ZXY','frame');
+euler_xsens=eulerd(q_imu_xsens_mc,'ZXY','frame');
 %
+figure 
+x1=subplot(3,1,1);
+hold on
+plot(mc(:,1),'LineWidth',1,'color','r')
+plot(iekf_tho(:,1),'LineWidth',1,'color','g')
+legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
+xticks([])
+ylabel('yaw ($\deg$)', 'interpreter','latex')
+set(gca,'FontSize',16)
+box on
+x2=subplot(3,1,2);
+hold on
+plot(mc(:,2),'LineWidth',1,'color','r')
+plot(iekf_tho(:,2),'LineWidth',1,'color','g')
+xticks([])
+set(gca,'FontSize',16)
+box on
+x3=subplot(3,1,3);
+hold on
+plot(mc(:,3),'LineWidth',1,'color','r')
+plot(iekf_tho(:,3),'LineWidth',1,'color','g')
+set(gca,'FontSize',16)
+xlabel('time (s)', 'interpreter','latex')
+ylabel('pitch ($\deg$)', 'interpreter','latex')
+
 err_ekf=mc-ekf;
 err_ekf_tho=mc-ekf_tho;
+err_iekf = mc - iekf;
+err_iekf_tho = mc - iekf_tho;
 err_cekf=mc-cekf;
 err_eskf=mc-eskf;
 err_gd=mc-gd;
 err_doe=mc-doe;
+err_vqf = mc - euler_vqf;
+err_xsens = mc - euler_xsens;
 % err_mkmc=mc-mkmc;
+
+% 将所有误差变量合并为一个矩阵
+error_matrix = [err_ekf, err_ekf_tho, err_iekf, err_iekf_tho, err_cekf, ...
+                err_eskf, err_gd, err_doe, err_vqf, err_xsens];
+
+% 找出不包含任何NaN值的行
+valid_rows = ~any(isnan(error_matrix), 2);
+
+% 对每个误差变量应用相同的行筛选
+err_ekf = err_ekf(valid_rows, :);
+err_ekf_tho = err_ekf_tho(valid_rows, :);
+err_iekf = err_iekf(valid_rows, :);
+err_iekf_tho = err_iekf_tho(valid_rows, :);
+err_cekf = err_cekf(valid_rows, :);
+err_eskf = err_eskf(valid_rows, :);
+err_gd = err_gd(valid_rows, :);
+err_doe = err_doe(valid_rows, :);
+err_vqf = err_vqf(valid_rows, :);
+err_xsens = err_xsens(valid_rows, :);
+
 % yaw error correction
 lenEuler=length(err_ekf);
 for i=1:lenEuler
@@ -287,6 +411,16 @@ for i=1:lenEuler
     err_ekf_tho(i,1)=err_ekf_tho(i,1)-360;
     elseif(err_ekf_tho(i,1)<-100)
     err_ekf_tho(i,1)=err_ekf_tho(i,1)+360;
+    end
+    if(err_iekf(i,1)>100)
+    err_iekf(i,1)=err_iekf(i,1)-360;
+    elseif(err_iekf(i,1)<-100)
+    err_iekf(i,1)=err_iekf(i,1)+360;
+    end
+    if(err_iekf_tho(i,1)>100)
+    err_iekf_tho(i,1)=err_iekf_tho(i,1)-360;
+    elseif(err_iekf_tho(i,1)<-100)
+    err_iekf_tho(i,1)=err_iekf_tho(i,1)+360;
     end
     if(err_cekf(i,1)>100)
     err_cekf(i,1)=err_cekf(i,1)-360;
@@ -308,496 +442,128 @@ for i=1:lenEuler
     elseif(err_doe(i,1)<-100)
     err_doe(i,1)=err_doe(i,1)+360;
     end
+    if(err_vqf(i,1)>100)
+    err_vqf(i,1)=err_vqf(i,1)-360;
+    elseif(err_vqf(i,1)<-100)
+    err_vqf(i,1)=err_vqf(i,1)+360;
+    end
+    if(err_xsens(i,1)>100)
+    err_xsens(i,1)=err_xsens(i,1)-360;
+    elseif(err_xsens(i,1)<-100)
+    err_xsens(i,1)=err_xsens(i,1)+360;
+    end
 end
 
 %
 error.err_ekf_rms=rms(err_ekf);
-error.err_ekf_tho_rms=rms(err_ekf_tho);
-error.err_cekf_rms=rms(err_cekf);
+error.err_DMKCEKF_rms=rms(err_ekf_tho);
+error.err_iekf_rms=rms(err_iekf);
+error.err_DMKCIEKF_rms=rms(err_iekf_tho);
+error.err_MKCEKF_rms=rms(err_cekf);
 error.err_eskf_rms=rms(err_eskf);
 error.err_gd_rms=rms(err_gd);
 error.err_doe_rms=rms(err_doe);
+error.err_vqf=rms(err_vqf);
+error.err_xsens=rms(err_xsens);
 % error.err_mkmc_rms=rms(err_mkmc);
 error
-figure
-t_eul=0:1/100:(length(err_ekf)-1)*1/100;
+
+figure 
 x1=subplot(3,1,1);
 hold on
-plot(t_eul,err_ekf_tho(:,1),'LineWidth',2,'color','r')
-plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
-
-% plot(t_eul,err_cekf(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
-plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
-plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-%plot(err_mkmc(:,1),'linewidth',0.8)
-% legend('EKf','EKf_tho','CEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
-legend('DMKCEKF','EKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+plot(Euler(:,1),'LineWidth',1,'color','r')
+plot(euler_imu(:,1),'LineWidth',1,'color','g')
+legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
 xticks([])
-% ylabel('yaw ($\deg$)', 'interpreter','latex')
-ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);
+ylabel('yaw ($\deg$)', 'interpreter','latex')
 set(gca,'FontSize',16)
 box on
 x2=subplot(3,1,2);
 hold on
-plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','r')
-plot(t_eul,err_ekf(:,2),'LineWidth',2,'color','g')
-% plot(t_eul,err_cekf(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
+plot(Euler(:,2),'LineWidth',1,'color','r')
+plot(euler_imu(:,2),'LineWidth',1,'color','g')
+xticks([])
+set(gca,'FontSize',16)
+box on
+x3=subplot(3,1,3);
+hold on
+plot(Euler(:,3),'LineWidth',1,'color','r')
+plot(euler_imu(:,3),'LineWidth',1,'color','g')
+set(gca,'FontSize',16)
+xlabel('time (s)', 'interpreter','latex')
+ylabel('pitch ($\deg$)', 'interpreter','latex')
+%% Mag Norm 
+time_mag=0:1/400:(1/400*(size(Mag_norm,2)-1));
+MagNorm_init=mean(Mag_norm(1,1:20));
+MagNorm_max=max(Mag_norm);
+figure
+plot(time_mag',Mag_norm','LineWidth',1,'color','g')
+xlabel('t');
+ylabel('Magnetic Norm', 'interpreter','latex')
+
+% % 设置阈值
+% threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
+
+    % x_first= time_mag(find(Mag_norm > threshold, 1, 'first'),1);
+    % x_last = time_mag(find(Mag_norm > threshold, 1, 'last'),1);
+    % plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
+    % plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+
+
+figure
+t_eul=0:1/400:(length(err_ekf)-1)*1/400;
+x1=subplot(3,1,1);
+hold on
+plot(t_eul,err_iekf_tho(:,1),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+plot(t_eul,err_cekf(:,1),'LineWidth',1,'color','r')
+plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
+% plot(t_eul,err_eskf(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
+plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+%plot(err_mkmc(:,1),'linewidth',0.8)
+legend('DMKCIEKF','MKCEKF','EKF','IEKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+xticks([])
+ylabel('yaw ($\deg$)', 'interpreter','latex')
+% ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);
+set(gca,'FontSize',16)
+box on
+x2=subplot(3,1,2);
+hold on
+plot(t_eul,err_iekf_tho(:,2),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+plot(t_eul,err_cekf(:,2),'LineWidth',1,'color','r')
+plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
+% plot(t_eul,err_eskf(:,2),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf(:,2),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-% ylabel('roll ($\deg$)', 'interpreter','latex')
-ylabel('横滚角（°）', 'Interpreter', 'latex', 'FontSize', 16);
+ylabel('roll ($\deg$)', 'interpreter','latex')
+% ylabel('横滚角（°）', 'Interpreter', 'latex', 'FontSize', 16);
 %plot(err_mkmc(:,2),'linewidth',0.8)
 xticks([])
 set(gca,'FontSize',16)
 box on
 x3=subplot(3,1,3);
 hold on
-plot(t_eul,err_ekf_tho(:,3),'LineWidth',2,'color','r')
-plot(t_eul,err_ekf(:,3),'LineWidth',2,'color','g')
-% plot(t_eul,err_cekf(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
-plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf_tho(:,3),'-','LineWidth',2,'color','black','MarkerSize',10,'MarkerIndices',1:80:length(t_eul))
+plot(t_eul,err_cekf(:,3),'LineWidth',1,'color','r')
+plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
+% plot(t_eul,err_eskf(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf(:,3),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,3),'linewidth',0.8)
 set(gca,'FontSize',16)
-% xlabel('time (s)', 'interpreter','latex')
-% ylabel('pitch ($\deg$)', 'interpreter','latex')
-xlabel('时间 (s)', 'interpreter','latex')
-ylabel('俯仰角（°）', 'Interpreter', 'latex', 'FontSize', 16);
+xlabel('time (s)', 'interpreter','latex')
+ylabel('pitch ($\deg$)', 'interpreter','latex')
+% xlabel('时间 (s)', 'interpreter','latex')
+% ylabel('俯仰角（°）', 'Interpreter', 'latex', 'FontSize', 16);
 
 box on
 linkaxes([x1,x2,x3],'x')
 xlim([0,t_eul(end)])
 set(gcf,'position',[100 100 750 600])
 
-%% free acceleration
-% g=[0,0,9.81]; 
-% acc=Accelerometer;
-% acc_q=quaternion([zeros(length(acc),1),acc]);
-% % eks
-% g_se=Quat_eks; % 
-% acc_es=g_se.*acc_q.*conj(g_se); % obtain the acc readings in the inertial frame
-% acc_esv = compact(acc_es);
-% acc_es=acc_esv(:,2:4);
-% acc_free=acc_es-g; % free acceleration in the initial frame
-% freeAcc_eks=acc_free;
-% % ceks
-% g_se=Quat_ceks; % 
-% acc_es=g_se.*acc_q.*conj(g_se); % obtain the acc readings in the inertial frame
-% acc_esv = compact(acc_es);
-% acc_es=acc_esv(:,2:4);
-% acc_free=acc_es-g; % free acceleration in the initial frame
-% freeAcc_ceks=acc_free;
-% % eskf
-% g_se=Quat_eskf; % 
-% acc_es=g_se.*acc_q.*conj(g_se); % obtain the acc readings in the inertial frame
-% acc_esv = compact(acc_es);
-% acc_es=acc_esv(:,2:4);
-% acc_free=acc_es-g; % free acceleration in the initial frame
-% freeAcc_eskf=acc_free;
-% % gd
-% g_se=Quat_gd; % 
-% acc_es=g_se.*acc_q.*conj(g_se); % obtain the acc readings in the inertial frame
-% acc_esv = compact(acc_es);
-% acc_es=acc_esv(:,2:4);
-% acc_free=acc_es-g; % free acceleration in the initial frame
-% freeAcc_gd=acc_free;
-% % doe
-% g_se=Quat_doe; % 
-% acc_es=g_se.*acc_q.*conj(g_se); % obtain the acc readings in the inertial frame
-% acc_esv = compact(acc_es);
-% acc_es=acc_esv(:,2:4);
-% acc_free=acc_es-g; % free acceleration in the initial frame
-% freeAcc_doe=acc_free;
-% % mkmc
-% g_se=Quat_mkmc; % 
-% acc_es=g_se.*acc_q.*conj(g_se); % obtain the acc readings in the inertial frame
-% acc_esv = compact(acc_es);
-% acc_es=acc_esv(:,2:4);
-% acc_free=acc_es-g; % free acceleration in the initial frame
-% freeAcc_mkmc=acc_free;
-% %% segmentation
-% mydata=[t',Accelerometer,Gyroscope,Magnetic];
-% P=gyroscope_norm(mydata,freeAcc_ceks,index_imu,fs); % the moveing interval except the first row
-% len=length(t);
-% vel=zeros(len,3);
-% Pvm=zeros(len,1);
-% %% trajectory estimation
-% clear freeAcc
-% freeAcc{1}=freeAcc_eks;
-% freeAcc{2}=freeAcc_ceks;
-% freeAcc{3}=freeAcc_eskf;
-% freeAcc{4}=freeAcc_gd;
-% freeAcc{5}=freeAcc_doe;
-% freeAcc{6}=freeAcc_mkmc;
-% for item=1:6
-% [seg,col]=size(P);
-% for i=1:seg-1
-%     index=P(i,2):P(i+1,1); % swing index
-%     acc=freeAcc{item}(index,:);
-%     v_init=zeros(3,1);
-%     % zero velocity update estimation
-%     ZUPT_vel=velocity_estimation(acc,v_init,4*stdAcc,index);
-%     % store the vel and Pv
-%     vel(index,:)=ZUPT_vel.vel; % velocity estimate
-%     Pvm(index,:)=ZUPT_vel.Pv; % velocity covariance
-% end
-% % position estimation (navigation frame): forward
-% p_init=zeros(3,1);
-% POSF=position_estimation(vel,p_init,Pvm);
-% posf=POSF.pos;
-% Pposf=POSF.Ppm;
-% % position estimation (navigation frame): backward
-% POSB=position_estimation_b(vel,p_init,Pvm);
-% posb=POSB.pos;
-% Pposb=POSB.Ppm;
-% % position fusion
-% [pos,K,PP]=position_fusion(posf,posb,Pposf,Pposb);
-% % store trajectory
-% POSIMU.pos=pos(index_imu,:); % segmentation
-% POSIMU.P=PP(index_imu,:); %
-% POSIMU.pos=POSIMU.pos(1:4:end,:); % align the sampling rate
-% POSIMU.P=POSIMU.P(1:4:end,:); % align the sampling rate
-% % store the trajectory in navigation frame
-% POS_store{item}=POSIMU; % navigation frame
-% 
-% % position in the optical motion capture frame
-% pos_q=quaternion(-[zeros(length(POSIMU.pos),1),POSIMU.pos]); 
-% pos_q_opc=b_q.*pos_q.*conj(b_q); % b_q = q_{i}^{o} the orientation of the global omc w.r.t. inertial frame
-% pos_opc=compact(pos_q_opc);
-% pos_opc=pos_opc(:,2:4);
-% % store the trajectory in motion capture frame
-% POS_store_omc{item}.pos=pos_opc;
-% POS_store_omc{item}.P=POS_store{item}.P;
-% 
-% % forward position in the optical motion capture frame
-% posf=posf(index_imu,:); % segmentation
-% posf=posf(1:4:end,:);   % sample aligment
-% posf_q=quaternion(-[zeros(length(posf),1),posf]); 
-% posf_q_opc=b_q.*posf_q.*conj(b_q); % b_q = q_{i}^{o} the orientation of the global omc w.r.t. inertial frame
-% posf_opc=compact(posf_q_opc);
-% posf_opc=posf_opc(:,2:4);
-% % store the trajectory in motion capture frame
-% POS_store_omc{item}.posf=posf_opc;
-% Pposf_algin=Pposf;
-% Pposf_algin=Pposf_algin(index_imu,:);
-% Pposf_algin=Pposf_algin(1:4:end,:);
-% POS_store_omc{item}.Pf=Pposf_algin;
-% end
-% 
-% %% trajectory in the navigation frame
-% % ground truth
-% fs_omc=100;
-% index_omc_seg=find(imuMC.t>=t_s&imuMC.t<=t_e);
-% t_omc=0:1/fs_omc:(length(index_omc_seg)-1)/fs_omc;
-% poso=imuMC.Tran(index_omc_seg,:);
-% pos_omc=poso-poso(1,:);
-% % convert it to navigation frame
-% pos_omc_q=-quaternion([zeros(length(pos_omc),1),pos_omc]);
-% pos_omc_n=conj(b_q).*pos_omc_q.*b_q;
-% pos_omc_n=compact(pos_omc_n);
-% pos_omc_nimu=pos_omc_n(:,2:4);
-% % 
-% figure
-% hold on
-% plot3(pos_omc_nimu(:,1),pos_omc_nimu(:,2),pos_omc_nimu(:,3),'-o','LineWidth',2,...
-%     'Color','red','MarkerIndices',1:10:length(pos_omc_nimu(:,1)),'LineWidth',2)
-% hold on
-% plot3(POS_store{1}.pos(:,1),POS_store{1}.pos(:,2),POS_store{1}.pos(:,3),'LineWidth',2,'color','g')
-% plot3(POS_store{2}.pos(:,1),POS_store{2}.pos(:,2),POS_store{2}.pos(:,3),'LineWidth',2,'color','black','Marker','+','MarkerIndices',1:10:length(POS_store{2}.pos(:,1)))
-% plot3(POS_store{3}.pos(:,1),POS_store{3}.pos(:,2),POS_store{3}.pos(:,3),'LineWidth',2,'color','blue')
-% plot3(POS_store{4}.pos(:,1),POS_store{4}.pos(:,2),POS_store{4}.pos(:,3),'LineWidth',2,'color','m')
-% plot3(POS_store{5}.pos(:,1),POS_store{5}.pos(:,2),POS_store{5}.pos(:,3),'LineWidth',2,'color',[0.4940 0.1840 0.5560])
-% %plot3(POS_store{6}.pos(:,1),POS_store{6}.pos(:,2),POS_store{6}.pos(:,3),'LineWidth',2,'color',[0.8500 0.3250 0.0980])
-% xlabel('x (m)','interpreter','latex')
-% ylabel('y (m)','interpreter','latex')
-% zlabel('z (m)','interpreter','latex')
-% view(-87,15)
-% legend('OMC','EKS','MKCERTS','ESKF','GD','DOE','interpreter','latex','Location','southwest')
-% set(gca,'fontsize',16)
-% set(gcf,'position',[100 100 750 600])
-% 
-% %% we visualize the trajectory in motion capture frame
-% figure
-% hold on
-% plot3(pos_omc(:,1),pos_omc(:,2),pos_omc(:,3),'-o','LineWidth',2,...
-%     'Color','red','MarkerIndices',1:10:length(pos_omc_nimu(:,1)),'LineWidth',2)
-% hold on
-% plot3(POS_store_omc{1}.pos(:,1),POS_store_omc{1}.pos(:,2),POS_store_omc{1}.pos(:,3),'LineWidth',2,'color','g')
-% plot3(POS_store_omc{2}.pos(:,1),POS_store_omc{2}.pos(:,2),POS_store_omc{2}.pos(:,3),'LineWidth',2,'color','black','Marker','+','MarkerIndices',1:10:length(POS_store{2}.pos(:,1)))
-% plot3(POS_store_omc{3}.pos(:,1),POS_store_omc{3}.pos(:,2),POS_store_omc{3}.pos(:,3),'LineWidth',2,'color','blue')
-% plot3(POS_store_omc{4}.pos(:,1),POS_store_omc{4}.pos(:,2),POS_store_omc{4}.pos(:,3),'LineWidth',2,'color','m')
-% plot3(POS_store_omc{5}.pos(:,1),POS_store_omc{5}.pos(:,2),POS_store_omc{5}.pos(:,3),'LineWidth',2,'color',[0.4940 0.1840 0.5560])
-% %plot3(POS_store_omc{6}.pos(:,1),POS_store_omc{6}.pos(:,2),POS_store_omc{6}.pos(:,3),'LineWidth',2,'color',[0.8500 0.3250 0.0980])
-% xlabel('x (m)','interpreter','latex')
-% ylabel('y (m)','interpreter','latex')
-% zlabel('z (m)','interpreter','latex')
-% view(-90,90)
-% legend('OMC','EKS','MKCERTS','ESKF','GD','DOE','interpreter','latex','Location','northwest')
-% set(gca,'fontsize',16)
-% set(gcf,'position',[100 100 750 600])
-% box on
-% %% obtain the error and error rate
-% for item=1:6
-%     POS_store_omc{item}.pos_err=POS_store_omc{item}.pos-pos_omc; % closed loop error
-%     POS_store_omc{item}.pos_errf=POS_store_omc{item}.posf-pos_omc; % open loop error
-%     nlen=length(POS_store_omc{item}.pos);
-%     delta_pos_norm=zeros(nlen,1);
-%     delta_pos_norm_accm=zeros(nlen,1);
-%     POS_store_omc{item}.pos_err_norm=zeros(nlen,1);
-%     POS_store_omc{item}.pos_errf_norm=zeros(nlen,1);
-%     for i=1:nlen
-%         POS_store_omc{item}.pos_err_norm(i)=norm(POS_store_omc{item}.pos_err(i,:));
-%         POS_store_omc{item}.pos_errf_norm(i)=norm(POS_store_omc{item}.pos_errf(i,:));
-%         if(i>1)
-%            delta_pos_norm(i)=norm(pos_omc(i,:)-pos_omc(i-1,:)); % delta trajectory length 
-%            delta_pos_norm_accm(i)=delta_pos_norm_accm(i-1)+delta_pos_norm(i);
-%         end
-%     end
-%     % 
-%     POS_store_omc{item}.pos_accm=delta_pos_norm_accm;
-%     POS_store_omc{item}.pos_accuracy=POS_store_omc{item}.pos_err_norm./delta_pos_norm_accm(end);
-%     POS_store_omc{item}.pos_accuracyf=POS_store_omc{item}.pos_errf_norm./delta_pos_norm_accm(end);
-%     POS_store_omc{item}.t=0:0.01:(nlen-1)*0.01;
-% end
-% 
-% figure
-% hold on
-% plot3(POS_store_omc{2}.pos_errf(:,1),POS_store_omc{2}.pos_errf(:,2),POS_store_omc{2}.pos_errf(:,3),'-o','LineWidth',2,...
-%     'Color','red','MarkerIndices',1:10:length(pos_omc_nimu(:,1)),'LineWidth',2)
-% hold on
-% %plot3(POS_store_omc{1}.pos_err(:,1),POS_store_omc{1}.pos_err(:,2),POS_store_omc{1}.pos_err(:,3),'LineWidth',2,'color','g')
-% plot3(POS_store_omc{2}.pos_err(:,1),POS_store_omc{2}.pos_err(:,2),POS_store_omc{2}.pos_err(:,3),'LineWidth',2,'color','black','Marker','+','MarkerIndices',1:10:length(POS_store{2}.pos(:,1)))
-% %plot3(POS_store_omc{3}.pos_err(:,1),POS_store_omc{3}.pos_err(:,2),POS_store_omc{3}.pos_err(:,3),'LineWidth',2,'color','blue')
-% %plot3(POS_store_omc{4}.pos_err(:,1),POS_store_omc{4}.pos_err(:,2),POS_store_omc{4}.pos_err(:,3),'LineWidth',2,'color','m')
-% %plot3(POS_store_omc{5}.pos_err(:,1),POS_store_omc{5}.pos_err(:,2),POS_store_omc{5}.pos_err(:,3),'LineWidth',2,'color',[0.4940 0.1840 0.5560])
-% %plot3(POS_store_omc{6}.pos(:,1),POS_store_omc{6}.pos(:,2),POS_store_omc{6}.pos(:,3),'LineWidth',2,'color',[0.8500 0.3250 0.0980])
-% xlabel('x (m)','interpreter','latex')
-% ylabel('y (m)','interpreter','latex')
-% zlabel('z (m)','interpreter','latex')
-% view(-87,15)
-% legend('OMC','EKS','MKCERTS','ESKF','GD','DOE','interpreter','latex','Location','southwest')
-% set(gca,'fontsize',16)
-% set(gcf,'position',[100 100 750 600])
-% 
-% %% we calculate the error with repect to the whole trajectory length
-% item=2;
-% figure
-% box on
-% yyaxis left
-% hold on
-% plot(POS_store_omc{item}.t,POS_store_omc{item}.pos_err_norm,'LineWidth',2,'Color','red')
-% plot(POS_store_omc{item}.t,POS_store_omc{item}.pos_errf_norm,'LineWidth',2,'Color','blue')
-% 
-% %plot(POS_store_omc{item}.pos_accm,'LineWidth',2,'Color','black')
-% set(gca,'fontsize',16)
-% ylabel('m','interpreter','latex')
-% legend('$\|p_e\|$ (open)','$\|p_e\|$ (closed)','interpreter','latex')
-% ylim([0,max(POS_store_omc{item}.pos_errf_norm)])
-% yyaxis right
-% hold on
-% plot(POS_store_omc{item}.t,POS_store_omc{item}.pos_accuracy*100,'+','Markersize',8,'MarkerIndices',1:50:length(POS_store_omc{item}.t),'MarkerEdgeColor','black','LineWidth',1)
-% plot(POS_store_omc{item}.t,POS_store_omc{item}.pos_accuracyf*100,'+','Markersize',8,'MarkerIndices',1:50:length(POS_store_omc{item}.t),'MarkerEdgeColor','m','LineWidth',1)
-% set(gca,'fontsize',16)
-% xlabel('time (s)','interpreter','latex')
-% legend('error (closed)','error (open)','error rate (closed)','error rate (open)','interpreter','latex')
-% ylim([0,max(POS_store_omc{item}.pos_accuracyf)]*100)
-% ylabel('error rate ($\%$)','interpreter','latex')
-% set(gcf,'position',[100 100 750 600])
-% xlim([POS_store_omc{item}.t(1) POS_store_omc{item}.t(end)])
-% 
-% 
-% item=2;
-% poserrmax1=max(POS_store_omc{item}.pos_err_norm);
-% poserrmax2=max(POS_store_omc{item}.pos_errf_norm);
-% 
-% (poserrmax2-poserrmax1)/poserrmax2
-% 
-% poserr1=rms(POS_store_omc{item}.pos_err_norm);
-% poserr2=rms(POS_store_omc{item}.pos_errf_norm);
-% 
-% %% step by step trajectory comparison: align the sampling rate
-% Acc=Accelerometer(index_imu,:);
-% Acc=Acc(1:4:end,:);
-% Gyr=Gyroscope(index_imu,:);
-% Gyr=Gyr(1:4:end,:);
-% Mag=Magnetic(index_imu,:);
-% Mag=Mag(1:4:end,:);
-% freeAccInd=freeAcc_ceks(index_imu,:);
-% freeAccInd=freeAccInd(1:4:end,:);
-% index=1:length(Mag);
-% time=1:length(Mag);
-% time=time';
-% mydataInd=[time,Acc,Gyr,Mag];
-% PIndex=gyroscope_norm(mydataInd,freeAccInd,index,fs/4); % the moveing interval except the first row
-% %PIndex=gyroscope_norm_sampling100(mydataInd,freeAccInd); % the moveing interval except the first row
-% % we only care about the trajectory in the moving region
-% pos_omc_step=nan(size(pos_omc));
-% for item=1:6
-% POS_store_step{item}.pos=nan(size(POS_store_omc{item}.pos));
-% POS_store_step{item}.P=nan(size(POS_store_omc{item}.P)); % covariance
-% [seg,col]=size(PIndex);
-% for i=1:seg-1
-%     index=PIndex(i,2):PIndex(i+1,1);
-%     %% %% %% %%
-%     % pos forward
-%     offset=POS_store_omc{item}.pos(index(1),:)-pos_omc(index(1),:);
-%     POS_store_step{item}.pos(index,:)=POS_store_omc{item}.pos(index,:)-offset;
-%     pos_omc_step(index,:)=pos_omc(index,:);
-%     % covariance forward
-%     POS_store_step{item}.P(index,:)=POS_store_omc{item}.P(index,:)-POS_store_omc{item}.P(index(1),:);
-%     %% %% %% %% 
-% end
-% end 
-% % trajectory estimation with reset at each step
-% figure
-% hold on
-% plot3(pos_omc_step(:,1),pos_omc_step(:,2),pos_omc_step(:,3),'-o','LineWidth',2,...
-%     'Color','red','MarkerIndices',1:10:length(pos_omc_step(:,1)),'LineWidth',2)
-% hold on
-% plot3(POS_store_step{1}.pos(:,1),POS_store_step{1}.pos(:,2),POS_store_step{1}.pos(:,3),'LineWidth',2,'color','g')
-% plot3(POS_store_step{2}.pos(:,1),POS_store_step{2}.pos(:,2),POS_store_step{2}.pos(:,3),'LineWidth',2,'color','black','Marker','+','MarkerIndices',1:10:length(POS_store{2}.pos(:,1)))
-% plot3(POS_store_step{3}.pos(:,1),POS_store_step{3}.pos(:,2),POS_store_step{3}.pos(:,3),'LineWidth',2,'color','blue')
-% plot3(POS_store_step{4}.pos(:,1),POS_store_step{4}.pos(:,2),POS_store_step{4}.pos(:,3),'LineWidth',2,'color','m')
-% plot3(POS_store_step{5}.pos(:,1),POS_store_step{5}.pos(:,2),POS_store_step{5}.pos(:,3),'LineWidth',2,'color',[0.4940 0.1840 0.5560])
-% %plot3(POS_store{6}.pos(:,1),POS_store{6}.pos(:,2),POS_store{6}.pos(:,3),'LineWidth',2,'color',[0.8500 0.3250 0.0980])
-% xlabel('x (m)','interpreter','latex')
-% ylabel('y (m)','interpreter','latex')
-% zlabel('z (m)','interpreter','latex')
-% view(-113,55)
-% legend('OMC','EKS','MKCERTS','ESKF','GD','DOE','interpreter','latex','Location','southwest')
-% set(gca,'fontsize',16)
-% set(gcf,'position',[100 100 750 600])
-% 
-% 
-% %% error trajectory
-% for item=1:6
-%     POS_store_step{item}.err=POS_store_step{item}.pos-pos_omc_step; % error trajectory
-%     POS_store_step{item}.err_new=POS_store_step{item}.err; % new error trajectory
-%     indexnan=find(isnan(POS_store_step{item}.err(:,1))); % nan index
-%     POS_store_step{item}.err_new(indexnan,:)=[]; % set nan to []
-%     POS_store_step{item}.err_new_rms=rms(POS_store_step{item}.err_new); % rms
-%     POS_store_step{item}.err_new_max=max(abs(POS_store_step{item}.err_new)); % max
-%     POS_store_step{item}.Pnew=POS_store_step{item}.P; %
-%     POS_store_step{item}.Pnew(indexnan)=0; %
-% end
-% 
-% 
-% %% patch figure
-% sigma3_ceks=3*sqrt(abs(POS_store_step{2}.Pnew));
-% cur_omc=pos_omc;
-% tstep=0:0.01:(length(cur_omc)-1)*0.01;
-% cur=POS_store_step{2}.pos; % cekfs 
-% %
-% figure
-% hold on
-% x1=subplot(3,1,1);
-% hold on
-% plot(tstep,cur_omc(:,1),'Color','red','LineWidth',1,'LineStyle','-')
-% plot(tstep,cur(:,1),'Color','black','LineWidth',1.5,'LineStyle','-')
-% hold on
-% plot(tstep,cur(:,1)+sigma3_ceks,'Color','m','LineStyle','--','LineWidth',1.5)
-% plot(tstep,cur(:,1)-sigma3_ceks,'Color','g','LineStyle','--','LineWidth',1.5)
-% ylabel('x (m)','interpreter','latex')
-% legend('OMC','MKCERTS','MKCERTS UB','MKCERTS LB','orientation','horizontal','fontsize',12)
-% box on
-% xticks([])
-% set(gca,'fontsize',16)
-% x2=subplot(3,1,2);
-% hold on
-% plot(tstep,cur_omc(:,2),'Color','red','LineWidth',1,'LineStyle','-')
-% plot(tstep,cur(:,2),'Color','black','LineWidth',1.5,'LineStyle','-')
-% plot(tstep,cur(:,2)+sigma3_ceks,'Color','m','LineStyle','--','LineWidth',1.5)
-% plot(tstep,cur(:,2)-sigma3_ceks,'Color','g','LineStyle','--','LineWidth',1.5)
-% ylabel('y (m)','interpreter','latex')
-% xticks([])
-% set(gca,'fontsize',16)
-% box on
-% x3=subplot(3,1,3);
-% hold on
-% plot(tstep,cur_omc(:,3),'Color','red','LineWidth',1,'LineStyle','-')
-% plot(tstep,cur(:,3),'Color','black','LineWidth',1.5,'LineStyle','-')
-% plot(tstep,cur(:,3)+sigma3_ceks,'Color','m','LineStyle','--','LineWidth',1.5)
-% plot(tstep,cur(:,3)-sigma3_ceks,'Color','g','LineStyle','--','LineWidth',1.5)
-% xlabel('time (s)','interpreter','latex')
-% ylabel('z (m)','interpreter','latex')
-% set(gcf,'position',[100 100 750 600])
-% set(gca,'fontsize',16)
-% linkaxes([x1,x2,x3],'x')
-% xlim([tstep(1),tstep(end)]);
-% box on
-% 
-% %% 
-% fprintf('EKS& %.3f & %.3f &%.3f ',error.err_eks_rms(1),error.err_eks_rms(2),error.err_eks_rms(3));
-% fprintf('&%.3f & %.3f &%.3f',POS_store_step{1}.err_new_rms(1),POS_store_step{1}.err_new_rms(2),POS_store_step{1}.err_new_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{1}.err_new_max(1),POS_store_step{1}.err_new_max(2),POS_store_step{1}.err_new_max(3));
-% 
-% fprintf('MKCERTS& %.3f & %.3f &%.3f ',error.err_ceks_rms(1),error.err_ceks_rms(2),error.err_ceks_rms(3));
-% fprintf('&%.3f & %.3f &%.3f',POS_store_step{2}.err_new_rms(1),POS_store_step{2}.err_new_rms(2),POS_store_step{2}.err_new_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{2}.err_new_max(1),POS_store_step{2}.err_new_max(2),POS_store_step{2}.err_new_max(3));
-% 
-% fprintf('ESKF& %.3f & %.3f &%.3f ',error.err_eskf_rms(1),error.err_eskf_rms(2),error.err_eskf_rms(3));
-% fprintf('&%.3f & %.3f &%.3f',POS_store_step{3}.err_new_rms(1),POS_store_step{3}.err_new_rms(2),POS_store_step{3}.err_new_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{3}.err_new_max(1),POS_store_step{3}.err_new_max(2),POS_store_step{3}.err_new_max(3));
-% 
-% fprintf('GD& %.3f & %.3f &%.3f ',error.err_gd_rms(1),error.err_gd_rms(2),error.err_gd_rms(3));
-% fprintf('&%.3f & %.3f &%.3f',POS_store_step{4}.err_new_rms(1),POS_store_step{4}.err_new_rms(2),POS_store_step{4}.err_new_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{4}.err_new_max(1),POS_store_step{4}.err_new_max(2),POS_store_step{4}.err_new_max(3));
-% 
-% fprintf('DOE& %.3f & %.3f &%.3f ',error.err_doe_rms(1),error.err_doe_rms(2),error.err_doe_rms(3));
-% fprintf('&%.3f & %.3f &%.3f',POS_store_step{5}.err_new_rms(1),POS_store_step{5}.err_new_rms(2),POS_store_step{5}.err_new_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{5}.err_new_max(1),POS_store_step{5}.err_new_max(2),POS_store_step{5}.err_new_max(3));
-% 
-% % fprintf('MKCERTS: %.3f \r',POS_store_step{2}.err_new_rms);
-% % fprintf('ESKF: %.3f \r',POS_store_step{3}.err_new_rms);
-% % fprintf('GD: %.3f \r',POS_store_step{4}.err_new_rms);
-% % fprintf('DOE: %.3f \r',POS_store_step{5}.err_new_rms);
-% % fprintf('MKMC: %.3f \r',POS_store_step{6}.err_new_rms);
-% 
-% fprintf('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-% fprintf('\r')
-% 
-% fprintf('EKS& %.3f & %.3f &%.3f ',error.err_eks_rms(1),error.err_eks_rms(2),error.err_eks_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{1}.err_new_rms(1),POS_store_step{1}.err_new_rms(2),POS_store_step{1}.err_new_rms(3));
-% 
-% fprintf('MKCERTS& %.3f & %.3f &%.3f ',error.err_ceks_rms(1),error.err_ceks_rms(2),error.err_ceks_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{2}.err_new_rms(1),POS_store_step{2}.err_new_rms(2),POS_store_step{2}.err_new_rms(3));
-% 
-% fprintf('ESKF& %.3f & %.3f &%.3f ',error.err_eskf_rms(1),error.err_eskf_rms(2),error.err_eskf_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{3}.err_new_rms(1),POS_store_step{3}.err_new_rms(2),POS_store_step{3}.err_new_rms(3));
-% 
-% fprintf('GD& %.3f & %.3f &%.3f ',error.err_gd_rms(1),error.err_gd_rms(2),error.err_gd_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{4}.err_new_rms(1),POS_store_step{4}.err_new_rms(2),POS_store_step{4}.err_new_rms(3));
-% 
-% fprintf('DOE& %.3f & %.3f &%.3f ',error.err_doe_rms(1),error.err_doe_rms(2),error.err_doe_rms(3));
-% fprintf('&%.3f & %.3f &%.3f\r',POS_store_step{5}.err_new_rms(1),POS_store_step{5}.err_new_rms(2),POS_store_step{5}.err_new_rms(3));
-% 
-% % %% animation %%
-% % 
-% % Quat_ceks=compact(Quat_ceks);
-% % 
-% % Quat_ceks_algin=Quat_ceks(index_imu,:);
-% % Quat_ceks_algin=Quat_ceks_algin(1:4:end,:);
-% % posPlot=POS_store_omc{item}.pos;
-% % 
-% % 
-% % quat2Matrix=quatern2rotMat(Quat_ceks_algin);
-% % fs=100;
-% % samplePeriod=1/fs;
-% % % Create 6 DOF animation
-% % SamplePlotFreq = 2;
-% % Spin = 120;
-% % % 'Trail', 'All'
-% % SixDofAnimation(posPlot, quat2Matrix, ...
-% %                 'SamplePlotFreq', SamplePlotFreq, 'Trail', 'All', ...
-% %                 'Position', [9 39 900 700], ...
-% %                 'AxisLength', 0.1, 'ShowArrowHead', false, ...
-% %                 'Xlabel', 'X (m)', 'Ylabel', 'Y (m)', 'Zlabel', 'Z (m)', 'ShowLegend', false, ...
-% %                 'CreateAVI', false, 'AVIfileName','3','AVIfileNameEnum', true, 'AVIfps', ((1/samplePeriod) / SamplePlotFreq));
-% % 
-% % view(41.5,21)
 
 
 
