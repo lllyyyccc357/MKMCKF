@@ -1,4 +1,4 @@
-function [out,QUAT_ORI_MKMC]=MR_MKMCIEKF(acc, gyr, mag, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag)
+function [out,QUAT_ORI_MKMC]=MR_MKMCLIEKF(acc, gyr, mag, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag)
 
 
 % Accelerometer data
@@ -77,8 +77,8 @@ for i=1:length(t)-1
        end
         zma=[ax(i);ay(i);az(i)]; 
 
-        za=(X_tlast*zma-g);
-         H_acc=vec2matrix(g);
+        za=(zma-X_tlast'*g);
+         H_acc=-vec2matrix(R_proi'*g);
 
         er_a=br_a\za;
        diay_acc=exp(-er_a.*er_a./sigma_y_acc);
@@ -93,7 +93,7 @@ for i=1:length(t)-1
         S_acc=H_acc*Ppriori*H_acc'+R_1_acc;
         K_acc=Ppriori*H_acc'*inv(S_acc);
        num=num-1;
-           X_t=expm(vec2matrix(K_acc*za))*R_proi;
+           X_t=R_proi*expm(-vec2matrix(K_acc*za));
            thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
            THE_acc(i,cnt-num)=thresh;
                if(thresh<1e-25)
@@ -124,9 +124,9 @@ for i=1:length(t)-1
         m_hat_s=m-dot(m,r_s_acc)*r_s_acc;
         m_hat_s=m_hat_s/norm(m_hat_s);
         zmm=m_hat_s;
-
-        zm=(X_tlast*zmm-h);
-        H_mag=vec2matrix(h);
+        zmm_prior=R_proi'*h;
+        zm=(zmm-zmm_prior);
+        H_mag=-vec2matrix(R_proi'*h);
     %          Hm=vec2matrix(h);
             %Ha=vec2matrix(g);
             %Hm=vec2matrix(h);
@@ -144,7 +144,7 @@ for i=1:length(t)-1
             S_mag=H_mag*Ppriori*H_mag'+R_1_mag;
             K_mag=Ppriori*H_mag'*inv(S_mag);
            num=num-1;
-               X_t=expm(vec2matrix(K_mag*zm))*R_proi;
+               X_t=R_proi*expm(-vec2matrix(K_mag*zm));
                thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
                THE_mag(i,cnt-num)=thresh;
                if(thresh<1e-25)
