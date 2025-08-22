@@ -4,7 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_stabledisturb_static_3.mat')
+load('mag_disturb_static_1.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -80,7 +80,7 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=0.5;
+sigma_acc_init=2.3;
 sigma_mag_init=1.7;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
@@ -140,7 +140,7 @@ euler_xsens=eulerd(Quat_xsens,'ZYX','frame');
 
 %% VQF
 % 1. 采样周期
-Ts = 1 / sample_freq;        % 例如 fs = N Hz 则 Ts = 0.01
+Ts = 1 / sample_freq;        % 例如 fs = 100 Hz 则 Ts = 0.01
 % 2. 初始化 VQF 对象（只用默认参数）
 vqf = VQF(Ts);
 % 3. 批量更新并获取结果
@@ -174,30 +174,22 @@ gd=eulerd(q_imu_gd,'ZYX','frame');
 doe=eulerd(q_imu_doe,'ZYX','frame');
 mkcekf=eulerd(q_imu_mkcekf,'ZYX','frame');
 
-N=2;
-% Initial state
-mean_value_ekf = mean(ekf(1:N, :), 1);
-mean_value_iekf = mean(iekf(1:N, :), 1);
-mean_value_ekf_tho = mean(ekf_tho(1:N, :), 1);
-mean_value_iekf_tho = mean(iekf_tho(1:N, :), 1);
-mean_value_eskf = mean(eskf(1:N, :), 1);
-mean_value_mkcekf = mean(mkcekf(1:N, :), 1);
-mean_value_gd = mean(gd(1:N, :), 1);
-mean_value_doe = mean(doe(1:N, :), 1);
-mean_value_vqf=mean(euler_vqf(1:N,:), 1);
-mean_value_xsens=mean(euler_xsens(1:N,:), 1);
+% 初始状态：前 20 个样本的均值
+mean_value = mean(iekf_tho(1:5, :), 1);
+mean_value_vqf=mean(euler_vqf(1:5,:), 1);
+mean_value_xsens=mean(euler_xsens(1:5,:), 1);
 % 
 % error calculate
-err_ekf = ekf-mean_value_ekf ;
-err_iekf = iekf-mean_value_iekf ;
-err_ekf_tho =  ekf_tho-mean_value_ekf_tho ;
-err_iekf_tho =iekf_tho-mean_value_iekf_tho ;
-err_eskf =eskf-mean_value_eskf ;
-err_mkcekf =  mkcekf-mean_value_mkcekf ;
-err_gd = gd-mean_value_gd ;
-err_doe = doe-mean_value_doe ;
-err_vqf =euler_vqf-mean_value_vqf;
-err_xsens = euler_xsens-mean_value_xsens;
+err_ekf = ekf-mean_value ;
+err_iekf = iekf-mean_value ;
+err_ekf_tho =  ekf_tho-mean_value ;
+err_iekf_tho =iekf_tho-mean_value ;
+err_eskf =eskf-mean_value ;
+err_mkcekf =  mkcekf;
+err_gd = gd;
+err_doe = doe;
+err_vqf =euler_vqf;
+err_xsens = euler_xsens;
 % yaw error correction
 lenEuler=length(err_ekf);
 for i=1:lenEuler
@@ -378,7 +370,7 @@ ylabel('pitch ($\deg$)', 'interpreter','latex')
 box on
 linkaxes([x1,x2,x3],'x')
 xlim([0,t_eul(end)])
-set(gcf,'position',[N N 750 600])
+set(gcf,'position',[100 100 750 600])
 
 
 xlabel('t');
@@ -429,7 +421,7 @@ ylabel('pitch ($\deg$)', 'interpreter','latex')
 % box on
 % linkaxes([x1,x2,x3],'x')
 % xlim([0,t_eul(end)])
-% set(gcf,'position',[N N 750 600])
+% set(gcf,'position',[100 100 750 600])
 % 
 % 
 % xlabel('t');

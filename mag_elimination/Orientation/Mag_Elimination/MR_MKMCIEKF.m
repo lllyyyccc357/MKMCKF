@@ -75,8 +75,7 @@ for i=1:length(t)-1
        else  
         X_tlast=X_t; 
        end
-        zma=[ax(i);ay(i);az(i)]; 
-
+        zma=[ax(i);ay(i);az(i)];
         za=(X_tlast*zma-g);
          H_acc=vec2matrix(g);
 
