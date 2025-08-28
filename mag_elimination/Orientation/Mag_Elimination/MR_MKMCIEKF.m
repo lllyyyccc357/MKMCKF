@@ -82,8 +82,8 @@ for i=1:length(t)-1
         er_a=br_a\za;
        diay_acc=exp(-er_a.*er_a./sigma_y_acc);
        for k=1:3
-        if(diay_acc(k)<1e-20)
-           diay_acc(k)=1e-20;
+        if(diay_acc(k)<1e-40)
+           diay_acc(k)=1e-40;
         end
        end
        Cy_acc=diag(diay_acc);
@@ -95,12 +95,15 @@ for i=1:length(t)-1
            X_t=expm(vec2matrix(K_acc*za))*R_proi;
            thresh=norm(X_t-X_tlast)/(norm(X_tlast)+1e-3);
            THE_acc(i,cnt-num)=thresh;
-               if(thresh<1e-25)
-                 break;
-               end
+%                if(thresh<1e-40)
+%                  break;
+%                end
      end
     R_post=X_t;
     Ppost=(eye(3)-K_acc*H_acc)*Ppriori;
+     
+    
+    
      if (rem(i,4)==1)
         Pprioi=Ppost;
         R_proi=R_post;
@@ -133,8 +136,8 @@ for i=1:length(t)-1
             er_m=br_m\zm;
            diay_mag=exp(-er_m.*er_m./sigma_y_mag);
            for k=1:3
-            if(diay_mag(k)<1e-20)
-               diay_mag(k)=1e-20;
+            if(diay_mag(k)<1e-40)
+               diay_mag(k)=1e-40;
             end
            end
            Cy_mag=diag(diay_mag);

@@ -4,6 +4,7 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
+% load('mag_disturb_static_4.mat')
 load('mag_stabledisturb_static_3.mat')
 
 % obtain the orientation
@@ -80,12 +81,12 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=0.5;
-sigma_mag_init=1.7;
+sigma_acc_init=7;
+sigma_mag_init=7;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
-stdGyro = 0.001*5;                % (rad/s)
+stdGyro = 0.005;                % (rad/s)
 stdAcc = 0.981;           % (g)
 stdMag  = 0.02;          % (a.u.)
 % DMKCEKF
@@ -97,9 +98,9 @@ end
 euler_thomas=eulerd(Quat_thomas,'ZYX','frame');
 
 % DMKCIEKF
-% [~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,qtho_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 % [~,qtho_iekf]=MR_MKMCLIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
-[~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+% [~,qtho_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 
 
 Quat_thomas_IEKF=Quat_gd;
@@ -122,11 +123,11 @@ sigma_mag_init=1000;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 
-[~,q_iekf]=MR_MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
+[~,q_iekf]=MKMCIEKF(IMU.Acceleration, IMU.Gyroscope, IMU.Magnetic, t, stdAcc, stdGyro, stdMag, sigma_acc,sigma_mag);
 
 Quat_iekf=Quat_gd;
 for i=1:length(q_iekf)
-    Quat_IEKF(i)=q_iekf(:,i);
+    Quat_iekf(i)=q_iekf(:,i);
 end
 euler_IEKF=eulerd(Quat_iekf,'ZYX','frame');
 
@@ -174,12 +175,12 @@ gd=eulerd(q_imu_gd,'ZYX','frame');
 doe=eulerd(q_imu_doe,'ZYX','frame');
 mkcekf=eulerd(q_imu_mkcekf,'ZYX','frame');
 
-N=2;
+N=1;
 % Initial state
 mean_value_ekf = mean(ekf(1:N, :), 1);
 mean_value_iekf = mean(iekf(1:N, :), 1);
 mean_value_ekf_tho = mean(ekf_tho(1:N, :), 1);
-mean_value_iekf_tho = mean(iekf_tho(1:N, :), 1);
+mean_value_iekf_tho = mean(iekf_tho(1:N, :), 1)
 mean_value_eskf = mean(eskf(1:N, :), 1);
 mean_value_mkcekf = mean(mkcekf(1:N, :), 1);
 mean_value_gd = mean(gd(1:N, :), 1);
