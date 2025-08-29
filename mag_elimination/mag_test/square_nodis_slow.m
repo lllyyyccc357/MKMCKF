@@ -75,17 +75,14 @@ end
 euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 
 %% VQF
-% 1. 采样周期
-Ts = 1 / sample_freq;        % 例如 fs = 100 Hz 则 Ts = 0.01
-% 2. 初始化 VQF 对象（只用默认参数）
+Ts = 1 / sample_freq;        
 vqf = VQF(Ts);
-% 3. 批量更新并获取结果
 out = vqf.updateBatch(Gyroscope, Accelerometer, Magnetic);
-% 4. 四元数和其他量
-quat9D      = out.quat9D;      % Nx4 矩阵：含磁校正的 9D 姿态
+quatD      = out.quat6D;    
+% quatD      = out.quat9D; 
 Quat_vqf=Quat_gd;
-for i=1:length(quat9D)
-    Quat_vqf(i)=quaternion(quat9D(i,1),quat9D(i,2),quat9D(i,3),quat9D(i,4));
+for i=1:length(quatD)
+    Quat_vqf(i)=quaternion(quatD(i,1),quatD(i,2),quatD(i,3),quatD(i,4));
 end
 euler_vqf=eulerd(Quat_vqf,'ZXY','frame');
 
@@ -198,7 +195,7 @@ angle1 = 3;
 angle2 = 3;
 flag1=1;
 flag2=-1;
-findpeakMatrix=[45 100;50 100];
+findpeakMatrix=[25 100;42 100];
 % findpeak method
 cur1=flag1*Euler(:,angle1);
 cur2=flag2*euler_imu(:,angle2);
@@ -211,8 +208,8 @@ cur2=flag2*euler_imu(:,angle2);
 t=0:1/fs:1/fs*(length(Accelerometer)-1);
 t_offset=t(locs2(1))-imuMC.t(locs1(1));
 % t_offset=t(locs2(1:2))-(imuMC.t(locs1(1:2)))'; % average the time gap of three peaks
-t_offset=mean(t_offset)
-imuMC.t=imuMC.t+t_offset-7*0.0025;   % time alignment: this is important
+t_offset=mean(t_offset);
+imuMC.t=imuMC.t+t_offset-0.0025*8;   % time alignment: this is important
 t_s=max(min(imuMC.t),0);
 t_e=max(imuMC.t);
 clear index_tracker index_imu
@@ -325,11 +322,12 @@ q_imu_doe_mc=-b_q.*q_imu_doe.*conj(a_q);
 q_imu_vqf=Quat_vqf(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_vqf_mc=-b_q.*q_imu_vqf.*conj(a_q);
+q_imu_vqf_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_vqf_mc(1)).*q_imu_vqf_mc;
 
 q_imu_xsens=Quat_xsens(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_xsens_mc=-b_q.*q_imu_xsens.*conj(a_q);
-
+q_imu_xsens_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_xsens_mc(1)).*q_imu_xsens_mc;
 
 mc=eulerd(q_mc_q,'ZXY','frame');
 ekf=eulerd(q_imu_ekf_mc,'ZXY','frame');

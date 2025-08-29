@@ -75,17 +75,14 @@ end
 euler_ekf=eulerd(Quat_ekf,'ZXY','frame');
 
 %% VQF
-% 1. 采样周期
-Ts = 1 / sample_freq;        % 例如 fs = 100 Hz 则 Ts = 0.01
-% 2. 初始化 VQF 对象（只用默认参数）
+Ts = 1 / sample_freq;        
 vqf = VQF(Ts);
-% 3. 批量更新并获取结果
 out = vqf.updateBatch(Gyroscope, Accelerometer, Magnetic);
-% 4. 四元数和其他量
-quat9D      = out.quat9D;      % Nx4 矩阵：含磁校正的 9D 姿态
+quatD      = out.quat6D;    
+% quatD      = out.quat9D; 
 Quat_vqf=Quat_gd;
-for i=1:length(quat9D)
-    Quat_vqf(i)=quaternion(quat9D(i,1),quat9D(i,2),quat9D(i,3),quat9D(i,4));
+for i=1:length(quatD)
+    Quat_vqf(i)=quaternion(quatD(i,1),quatD(i,2),quatD(i,3),quatD(i,4));
 end
 euler_vqf=eulerd(Quat_vqf,'ZXY','frame');
 
@@ -165,30 +162,6 @@ euler_cekf=eulerd(Quat_cekf,'ZXY','frame');
 Euler=imuMC.euler_deg;
 euler_imu=euler_thomas_IEKF;
 
-figure 
-x1=subplot(3,1,1);
-hold on
-plot(Euler(:,1),'LineWidth',1,'color','r')
-plot(euler_imu(:,1),'LineWidth',1,'color','g')
-legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
-xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
-box on
-x2=subplot(3,1,2);
-hold on
-plot(Euler(:,2),'LineWidth',1,'color','r')
-plot(euler_imu(:,2),'LineWidth',1,'color','g')
-xticks([])
-set(gca,'FontSize',16)
-box on
-x3=subplot(3,1,3);
-hold on
-plot(Euler(:,3),'LineWidth',1,'color','r')
-plot(euler_imu(:,3),'LineWidth',1,'color','g')
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
 
 % angle1 = input('the angle chosen for curl1: ');
 % angle2 = input('the angle chosen for curl2: ');
@@ -271,24 +244,8 @@ a_q=quaternion(x(1:4)); % obtain the result
 a_q=normalize(a_q);
 b_q=quaternion(x(5:8)); % obtain the result
 b_q=normalize(b_q);
-% tar=compact(q_mc_);
-% act=compact(b_q.*q_imu_.*conj(a_q));
-% figure
-% plot(tar,'linewidth',0.5)
-% hold on
-% plot(-act,'linewidth',0.5)
-% legend('OMC quaternion','IMU quaternion')
 
 %% orientation error comparison
-% q_imu_ekf=Quat_ekf;
-% q_imu_iekf=Quat_iekf;
-% q_imu_tho=Quat_thomas;
-% q_imu_tho_iekf=Quat_thomas_IEKF;
-% q_imu_eskf=Quat_eskf;% eskf
-% q_imu_gd=Quat_gd;% gd
-% q_imu_doe=Quat_doe;% doe
-% q_imu_vqf=Quat_vqf;
-% q_imu_xsens=Quat_xsens;% doe
 
 q_imu_ekf=Quat_ekf(index_imu,:);
 % q_imu_ekf=q_imu_ekf(1:4:end,:); % sampling alginment 
@@ -325,11 +282,12 @@ q_imu_doe_mc=-b_q.*q_imu_doe.*conj(a_q);
 q_imu_vqf=Quat_vqf(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_vqf_mc=-b_q.*q_imu_vqf.*conj(a_q);
+q_imu_vqf_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_vqf_mc(1)).*q_imu_vqf_mc;
 
 q_imu_xsens=Quat_xsens(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_xsens_mc=-b_q.*q_imu_xsens.*conj(a_q);
-
+q_imu_xsens_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_xsens_mc(1)).*q_imu_xsens_mc;
 
 mc=eulerd(q_mc_q,'ZXY','frame');
 ekf=eulerd(q_imu_ekf_mc,'ZXY','frame');
@@ -342,31 +300,7 @@ gd=eulerd(q_imu_gd_mc,'ZXY','frame');
 doe=eulerd(q_imu_doe_mc,'ZXY','frame');
 euler_vqf=eulerd(q_imu_vqf_mc,'ZXY','frame');
 euler_xsens=eulerd(q_imu_xsens_mc,'ZXY','frame');
-%
-figure 
-x1=subplot(3,1,1);
-hold on
-plot(mc(:,1),'LineWidth',1,'color','r')
-plot(iekf_tho(:,1),'LineWidth',1,'color','g')
-legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
-xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
-box on
-x2=subplot(3,1,2);
-hold on
-plot(mc(:,2),'LineWidth',1,'color','r')
-plot(iekf_tho(:,2),'LineWidth',1,'color','g')
-xticks([])
-set(gca,'FontSize',16)
-box on
-x3=subplot(3,1,3);
-hold on
-plot(mc(:,3),'LineWidth',1,'color','r')
-plot(iekf_tho(:,3),'LineWidth',1,'color','g')
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+
 
 err_ekf=mc-ekf;
 err_ekf_tho=mc-ekf_tho;
@@ -468,30 +402,30 @@ error.err_xsens=rms(err_xsens);
 % error.err_mkmc_rms=rms(err_mkmc);
 error
 
-figure 
-x1=subplot(3,1,1);
-hold on
-plot(Euler(:,1),'LineWidth',1,'color','r')
-plot(euler_imu(:,1),'LineWidth',1,'color','g')
-legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
-xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
-box on
-x2=subplot(3,1,2);
-hold on
-plot(Euler(:,2),'LineWidth',1,'color','r')
-plot(euler_imu(:,2),'LineWidth',1,'color','g')
-xticks([])
-set(gca,'FontSize',16)
-box on
-x3=subplot(3,1,3);
-hold on
-plot(Euler(:,3),'LineWidth',1,'color','r')
-plot(euler_imu(:,3),'LineWidth',1,'color','g')
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+% figure 
+% x1=subplot(3,1,1);
+% hold on
+% plot(Euler(:,1),'LineWidth',1,'color','r')
+% plot(euler_imu(:,1),'LineWidth',1,'color','g')
+% legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
+% xticks([])
+% ylabel('yaw ($\deg$)', 'interpreter','latex')
+% set(gca,'FontSize',16)
+% box on
+% x2=subplot(3,1,2);
+% hold on
+% plot(Euler(:,2),'LineWidth',1,'color','r')
+% plot(euler_imu(:,2),'LineWidth',1,'color','g')
+% xticks([])
+% set(gca,'FontSize',16)
+% box on
+% x3=subplot(3,1,3);
+% hold on
+% plot(Euler(:,3),'LineWidth',1,'color','r')
+% plot(euler_imu(:,3),'LineWidth',1,'color','g')
+% set(gca,'FontSize',16)
+% xlabel('time (s)', 'interpreter','latex')
+% ylabel('pitch ($\deg$)', 'interpreter','latex')
 %% Mag Norm 
 time_mag=0:1/400:(1/400*(size(Mag_norm,2)-1));
 MagNorm_init=mean(Mag_norm(1,1:20));
