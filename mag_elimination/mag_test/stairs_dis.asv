@@ -194,11 +194,11 @@ ylabel('pitch ($\deg$)', 'interpreter','latex')
 % angle2 = input('the angle chosen for curl2: ');
 % flag=input('the flag is: ');
 % findpeakMatrix=input('the matrix for findpeakMatrix: ');
-angle1 = 2;
-angle2 = 2;
+angle1 = 3;
+angle2 = 3;
 flag1=1;
-flag2=1;
-findpeakMatrix=[-10 100;10 100];
+flag2=-1;
+findpeakMatrix=[0 100;5 100];
 % findpeak method
 cur1=flag1*Euler(:,angle1);
 cur2=flag2*euler_imu(:,angle2);
@@ -212,7 +212,7 @@ t=0:1/fs:1/fs*(length(Accelerometer)-1);
 t_offset=t(locs2(1))-imuMC.t(locs1(1));
 % t_offset=t(locs2(1:2))-(imuMC.t(locs1(1:2)))'; % average the time gap of three peaks
 t_offset=mean(t_offset)
-imuMC.t=imuMC.t+t_offset-4*0.0025;   % time alignment: this is important
+imuMC.t=imuMC.t+t_offset;   % time alignment: this is important
 t_s=max(min(imuMC.t),1800*0.0025);
 t_e=max(imuMC.t);
 clear index_tracker index_imu
@@ -325,12 +325,10 @@ q_imu_doe_mc=-b_q.*q_imu_doe.*conj(a_q);
 q_imu_vqf=Quat_vqf(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_vqf_mc=-b_q.*q_imu_vqf.*conj(a_q);
-q_imu_vqf_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_vqf_mc(1)).*q_imu_vqf_mc;
 
 q_imu_xsens=Quat_xsens(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_xsens_mc=-b_q.*q_imu_xsens.*conj(a_q);
-q_imu_xsens_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_xsens_mc(1)).*q_imu_xsens_mc;
 
 
 mc=eulerd(q_mc_q,'ZXY','frame');

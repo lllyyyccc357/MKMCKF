@@ -1,11 +1,11 @@
-function stairs_dis()
+function stairs_nodis()
 
 
 close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-name="stairs-dis-four1";
+name="stairs-nodis-four2";
 
 IMU_data=name+"-IMU.mat";
 Cap_data=name+"-xsens.mat";
@@ -212,7 +212,7 @@ t=0:1/fs:1/fs*(length(Accelerometer)-1);
 t_offset=t(locs2(1))-imuMC.t(locs1(1));
 % t_offset=t(locs2(1:2))-(imuMC.t(locs1(1:2)))'; % average the time gap of three peaks
 t_offset=mean(t_offset)
-imuMC.t=imuMC.t+t_offset-4*0.0025;   % time alignment: this is important
+imuMC.t=imuMC.t+t_offset;   % time alignment: this is important
 t_s=max(min(imuMC.t),1800*0.0025);
 t_e=max(imuMC.t);
 clear index_tracker index_imu
