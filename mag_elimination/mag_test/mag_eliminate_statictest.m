@@ -4,8 +4,8 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-% load('mag_disturb_static_4.mat')
-load('mag_stabledisturb_static_3.mat')
+load('mag_disturb_static_4.mat')
+% load('mag_stabledisturb_static_3.mat')
 
 % obtain the orientation
 fs=IMU.Acc_fs;
@@ -43,7 +43,7 @@ end
 euler_gd=eulerd(Quat_gd,'ZYX','frame');
 %% DOE
 tauAcc= 5;
-tauMag= 10;
+tauMag= 20;
 zeta= 0.1;
 accRating= 0;
 out =EMDI(Accelerometer,Gyroscope,Magnetic,sample_freq, tauAcc, tauMag, zeta, accRating);
@@ -81,8 +81,8 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=7;
-sigma_mag_init=7;
+sigma_acc_init=2.5;
+sigma_mag_init=10;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
@@ -140,19 +140,17 @@ end
 euler_xsens=eulerd(Quat_xsens,'ZYX','frame');
 
 %% VQF
-% 1. 采样周期
-Ts = 1 / sample_freq;        % 例如 fs = N Hz 则 Ts = 0.01
-% 2. 初始化 VQF 对象（只用默认参数）
+Ts = 1 / sample_freq;        
 vqf = VQF(Ts);
-% 3. 批量更新并获取结果
 out = vqf.updateBatch(Gyroscope, Accelerometer, Magnetic);
-% 4. 四元数和其他量
-quat9D      = out.quat9D;      % Nx4 矩阵：含磁校正的 9D 姿态
+% quatD      = out.quat6D;    
+quatD      = out.quat9D; 
 Quat_vqf=Quat_gd;
-for i=1:length(quat9D)
-    Quat_vqf(i)=quaternion(quat9D(i,1),quat9D(i,2),quat9D(i,3),quat9D(i,4));
+for i=1:length(quatD)
+    Quat_vqf(i)=quaternion(quatD(i,1),quatD(i,2),quatD(i,3),quatD(i,4));
 end
-euler_vqf=eulerd(Quat_vqf,'ZYX','frame');
+euler_vqf=eulerd(Quat_vqf,'ZXY','frame');
+
 
 %% calculate the error
 q_imu_ekf=Quat_ekf;
@@ -180,7 +178,7 @@ N=1;
 mean_value_ekf = mean(ekf(1:N, :), 1);
 mean_value_iekf = mean(iekf(1:N, :), 1);
 mean_value_ekf_tho = mean(ekf_tho(1:N, :), 1);
-mean_value_iekf_tho = mean(iekf_tho(1:N, :), 1)
+mean_value_iekf_tho = mean(iekf_tho(1:N, :), 1);
 mean_value_eskf = mean(eskf(1:N, :), 1);
 mean_value_mkcekf = mean(mkcekf(1:N, :), 1);
 mean_value_gd = mean(gd(1:N, :), 1);
@@ -308,6 +306,7 @@ figure
 t_eul=0:1/400:(length(err_ekf)-1)*1/400;
 MagNorm_init=mean(Mag_norm(1,1:20));
 MagNorm_max=max(Mag_norm);
+set(gca,'FontSize',22)
 plot(t_eul,Mag_norm,'LineWidth',1,'color','g')
 xlabel('t');
 ylabel('Magnetic Norm', 'interpreter','latex')
@@ -336,7 +335,7 @@ plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
 plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-legend('DMKCIEKF','MKCEKF','EKF','IEKF','ESKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+legend('DMKCIEKF','MKCEKF','EKF','IEKF','ESKF','GD','IGD','interpreter','latex','Orientation','horizontal')
 
 
 xticks([])

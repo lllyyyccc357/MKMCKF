@@ -26,7 +26,7 @@ end
 
 %% orientation estimation using ESKF, GD, DOE, MKMC, and EKF
 %% ESKF
-MagSth=45;
+MagSth=30;
 ahrs=orientation_estimation_ahrs_fun_xsens(Accelerometer,Gyroscope,Magnetic,fs,MagSth);
 Quat_eskf=ahrs.Quat;
 euler_eskf=eulerd(Quat_eskf,'ZXY','frame');
@@ -177,8 +177,8 @@ cur1=flag1*Euler(:,angle1);
 cur2=flag2*euler_imu(:,angle2);
 % [pks1,locs1] = findpeaks(cur1,'MinPeakHeight',10,'MinPeakDistance',100);
 % [pks2,locs2] = findpeaks(cur2,'MinPeakHeight',10,'MinPeakDistance',100);
-[pks1,locs1] = findpeaks(cur1,'MinPeakHeight',findpeakMatrix(1,1),'MinPeakDistance',findpeakMatrix(1,2))
-[pks2,locs2] = findpeaks(cur2,'MinPeakHeight',findpeakMatrix(2,1),'MinPeakDistance',findpeakMatrix(2,2))
+[pks1,locs1] = findpeaks(cur1,'MinPeakHeight',findpeakMatrix(1,1),'MinPeakDistance',findpeakMatrix(1,2));
+[pks2,locs2] = findpeaks(cur2,'MinPeakHeight',findpeakMatrix(2,1),'MinPeakDistance',findpeakMatrix(2,2));
 % 
 
 t=0:1/fs:1/fs*(length(Accelerometer)-1);
@@ -270,6 +270,7 @@ q_imu_cekf_mc=-b_q.*q_imu_cekf.*conj(a_q);
 q_imu_eskf=Quat_eskf(index_imu,:);% eskf
 % q_imu_eskf=q_imu_eskf(1:4:end,:); % sampling alginment 
 q_imu_eskf_mc=-b_q.*q_imu_eskf.*conj(a_q);
+q_imu_eskf_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_eskf_mc(1)).*q_imu_eskf_mc;
 
 q_imu_gd=Quat_gd(index_imu,:);% gd
 % q_imu_gd=q_imu_gd(1:4:end,:); % sampling alginment 

@@ -2,7 +2,7 @@ function out=orientation_estimation_ahrs_fun_xsens(acc,gyro,mag,fs,MagSth)
 
 %% construct error state Kalman function
   dT=1/fs;
-  cOrientErrVar    = deg2rad(1)*deg2rad(1)*2000e-5; % var in init orientation error estim.
+  cOrientErrVar    = deg2rad(1)*deg2rad(1)*2000e-8; % var in init orientation error estim.
   cGyroBiasErrVar  = deg2rad(1)*deg2rad(1)*250e-3*0.1; % var in init gyro bias error estim
   cOrientGyroBiasErrVar = deg2rad(1)*deg2rad(1)*0; % covar orient -gyro bias error estim
   cAccErrVar       = 10e-5 * (9.81^2);  % var in linear accel drift error estim
