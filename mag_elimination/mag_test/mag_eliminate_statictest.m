@@ -4,9 +4,9 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-load('mag_disturb_static_4.mat')
-% load('mag_stabledisturb_static_3.mat')
-
+% load('mag_disturb_static_4.mat')
+% load('mag_stabledisturb_static_2.mat')
+load('imu-static-stable.mat')
 % obtain the orientation
 fs=IMU.Acc_fs;
 sample_freq=fs;
@@ -82,11 +82,11 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 
 %% Thomas elimination
 sigma_acc_init=2.5;
-sigma_mag_init=10;
+sigma_mag_init=5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
-stdGyro = 0.005;                % (rad/s)
+stdGyro = 0.001;                % (rad/s)
 stdAcc = 0.981;           % (g)
 stdMag  = 0.02;          % (a.u.)
 % DMKCEKF
@@ -306,8 +306,8 @@ figure
 t_eul=0:1/400:(length(err_ekf)-1)*1/400;
 MagNorm_init=mean(Mag_norm(1,1:20));
 MagNorm_max=max(Mag_norm);
-set(gca,'FontSize',22)
-plot(t_eul,Mag_norm,'LineWidth',1,'color','g')
+set(gca,'FontSize',25)
+plot(t_eul,Mag_norm,'LineWidth',1,'color','r')
 xlabel('t');
 ylabel('Magnetic Norm', 'interpreter','latex')
 hold on
@@ -316,8 +316,8 @@ threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
 
 x_first= t_eul(find(Mag_norm > threshold, 1, 'first'));
 x_last = t_eul(find(Mag_norm > threshold, 1, 'last'));
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+plot([x_first, x_first], ylim, 'b--', 'LineWidth', 1);  % 第一个竖线
+plot([x_last, x_last], ylim, 'b--', 'LineWidth', 1);  % 第二个竖线
 
 
 
@@ -333,9 +333,9 @@ plot(t_eul,err_iekf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_eskf(:,1),'LineWidth',1,'color',[0.9290 0.6940 0.1250])
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
-legend('DMKCIEKF','MKCEKF','EKF','IEKF','ESKF','GD','IGD','interpreter','latex','Orientation','horizontal')
+plot([x_first, x_first], ylim, 'b--', 'LineWidth', 1);  % 第一个竖线
+plot([x_last, x_last], ylim, 'b--', 'LineWidth', 1);  % 第二个竖线
+legend('DMKCIEKF','MKMC','EKF','IEKF','ESKF','GD','IGD','interpreter','latex','Orientation','horizontal')
 
 
 xticks([])
@@ -353,8 +353,8 @@ plot(t_eul,err_eskf(:,2),'LineWidth',1,'color',[0.9290 0.6940 0.1250])
 plot(t_eul,err_gd(:,2),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 ylabel('roll ($\deg$)', 'interpreter','latex')
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+plot([x_first, x_first], ylim, 'b--', 'LineWidth', 1);  % 第一个竖线
+plot([x_last, x_last], ylim, 'b--', 'LineWidth', 1);  % 第二个竖线
 
 xticks([])
 set(gca,'FontSize',16)
@@ -369,8 +369,8 @@ plot(t_eul,err_iekf(:,3),'LineWidth',1,'color','blue')
 plot(t_eul,err_eskf(:,3),'LineWidth',1,'color',[0.9290 0.6940 0.1250])
 plot(t_eul,err_gd(:,3),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 1);  % 第一个竖线
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 1);  % 第二个竖线
+plot([x_first, x_first], ylim, 'b--', 'LineWidth', 1);  % 第一个竖线
+plot([x_last, x_last], ylim, 'b--', 'LineWidth', 1);  % 第二个竖线
 
 set(gca,'FontSize',16)
 xlabel('time (s)', 'interpreter','latex')

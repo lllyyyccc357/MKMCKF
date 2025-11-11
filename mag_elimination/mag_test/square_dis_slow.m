@@ -162,30 +162,30 @@ euler_cekf=eulerd(Quat_cekf,'ZXY','frame');
 Euler=imuMC.euler_deg;
 euler_imu=euler_thomas_IEKF;
 
-figure 
-x1=subplot(3,1,1);
-hold on
-plot(Euler(:,1),'LineWidth',1,'color','r')
-plot(euler_imu(:,1),'LineWidth',1,'color','g')
-legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
-xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
-box on
-x2=subplot(3,1,2);
-hold on
-plot(Euler(:,2),'LineWidth',1,'color','r')
-plot(euler_imu(:,2),'LineWidth',1,'color','g')
-xticks([])
-set(gca,'FontSize',16)
-box on
-x3=subplot(3,1,3);
-hold on
-plot(Euler(:,3),'LineWidth',1,'color','r')
-plot(euler_imu(:,3),'LineWidth',1,'color','g')
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+% figure 
+% x1=subplot(3,1,1);
+% hold on
+% plot(Euler(:,1),'LineWidth',1,'color','r')
+% plot(euler_imu(:,1),'LineWidth',1,'color','g')
+% legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
+% xticks([])
+% ylabel('yaw ($\deg$)', 'interpreter','latex')
+% set(gca,'FontSize',16)
+% box on
+% x2=subplot(3,1,2);
+% hold on
+% plot(Euler(:,2),'LineWidth',1,'color','r')
+% plot(euler_imu(:,2),'LineWidth',1,'color','g')
+% xticks([])
+% set(gca,'FontSize',16)
+% box on
+% x3=subplot(3,1,3);
+% hold on
+% plot(Euler(:,3),'LineWidth',1,'color','r')
+% plot(euler_imu(:,3),'LineWidth',1,'color','g')
+% set(gca,'FontSize',16)
+% xlabel('time (s)', 'interpreter','latex')
+% ylabel('pitch ($\deg$)', 'interpreter','latex')
 
 % angle1 = input('the angle chosen for curl1: ');
 % angle2 = input('the angle chosen for curl2: ');
@@ -341,30 +341,30 @@ doe=eulerd(q_imu_doe_mc,'ZXY','frame');
 euler_vqf=eulerd(q_imu_vqf_mc,'ZXY','frame');
 euler_xsens=eulerd(q_imu_xsens_mc,'ZXY','frame');
 %
-figure 
-x1=subplot(3,1,1);
-hold on
-plot(mc(:,1),'LineWidth',1,'color','r')
-plot(iekf_tho(:,1),'LineWidth',1,'color','g')
-legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
-xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
-box on
-x2=subplot(3,1,2);
-hold on
-plot(mc(:,2),'LineWidth',1,'color','r')
-plot(iekf_tho(:,2),'LineWidth',1,'color','g')
-xticks([])
-set(gca,'FontSize',16)
-box on
-x3=subplot(3,1,3);
-hold on
-plot(mc(:,3),'LineWidth',1,'color','r')
-plot(iekf_tho(:,3),'LineWidth',1,'color','g')
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+% figure 
+% x1=subplot(3,1,1);
+% hold on
+% plot(mc(:,1),'LineWidth',1,'color','r')
+% plot(iekf_tho(:,1),'LineWidth',1,'color','g')
+% legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
+% xticks([])
+% ylabel('yaw ($\deg$)', 'interpreter','latex')
+% set(gca,'FontSize',16)
+% box on
+% x2=subplot(3,1,2);
+% hold on
+% plot(mc(:,2),'LineWidth',1,'color','r')
+% plot(iekf_tho(:,2),'LineWidth',1,'color','g')
+% xticks([])
+% set(gca,'FontSize',16)
+% box on
+% x3=subplot(3,1,3);
+% hold on
+% plot(mc(:,3),'LineWidth',1,'color','r')
+% plot(iekf_tho(:,3),'LineWidth',1,'color','g')
+% set(gca,'FontSize',16)
+% xlabel('time (s)', 'interpreter','latex')
+% ylabel('pitch ($\deg$)', 'interpreter','latex')
 
 err_ekf=mc-ekf;
 err_ekf_tho=mc-ekf_tho;
@@ -466,39 +466,42 @@ error.err_xsens=rms(err_xsens);
 % error.err_mkmc_rms=rms(err_mkmc);
 error
 
-figure 
-x1=subplot(3,1,1);
-hold on
-plot(Euler(:,1),'LineWidth',1,'color','r')
-plot(euler_imu(:,1),'LineWidth',1,'color','g')
-legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
-xticks([])
-ylabel('yaw ($\deg$)', 'interpreter','latex')
-set(gca,'FontSize',16)
-box on
-x2=subplot(3,1,2);
-hold on
-plot(Euler(:,2),'LineWidth',1,'color','r')
-plot(euler_imu(:,2),'LineWidth',1,'color','g')
-xticks([])
-set(gca,'FontSize',16)
-box on
-x3=subplot(3,1,3);
-hold on
-plot(Euler(:,3),'LineWidth',1,'color','r')
-plot(euler_imu(:,3),'LineWidth',1,'color','g')
-set(gca,'FontSize',16)
-xlabel('time (s)', 'interpreter','latex')
-ylabel('pitch ($\deg$)', 'interpreter','latex')
+% figure 
+% x1=subplot(3,1,1);
+% hold on
+% plot(Euler(:,1),'LineWidth',1,'color','r')
+% plot(euler_imu(:,1),'LineWidth',1,'color','g')
+% legend('Euler','euler_imu','interpreter','latex','Orientation','horizontal')
+% xticks([])
+% ylabel('yaw ($\deg$)', 'interpreter','latex')
+% set(gca,'FontSize',16)
+% box on
+% x2=subplot(3,1,2);
+% hold on
+% plot(Euler(:,2),'LineWidth',1,'color','r')
+% plot(euler_imu(:,2),'LineWidth',1,'color','g')
+% xticks([])
+% set(gca,'FontSize',16)
+% box on
+% x3=subplot(3,1,3);
+% hold on
+% plot(Euler(:,3),'LineWidth',1,'color','r')
+% plot(euler_imu(:,3),'LineWidth',1,'color','g')
+% set(gca,'FontSize',16)
+% xlabel('time (s)', 'interpreter','latex')
+% ylabel('pitch ($\deg$)', 'interpreter','latex')
 %% Mag Norm 
 time_mag=0:1/400:(1/400*(size(Mag_norm,2)-1));
 MagNorm_init=mean(Mag_norm(1,1:20));
 MagNorm_max=max(Mag_norm);
 figure
-plot(time_mag',Mag_norm','LineWidth',1,'color','g')
-xlabel('t');
+x11=subplot(2,1,1);
+plot(time_mag',Mag_norm','LineWidth',1,'color','r')
 ylabel('Magnetic Norm', 'interpreter','latex')
-
+x12=subplot(2,1,2);
+plot(time_mag',Acc_norm','LineWidth',1,'color','r')
+xlabel('t');
+ylabel('Acclerator Norm', 'interpreter','latex')
 % % 设置阈值
 % threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
 
@@ -520,7 +523,7 @@ plot(t_eul,err_iekf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,1),'linewidth',0.8)
-legend('DMKCIEKF','MKCEKF','EKF','IEKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+legend('DMKCIEKF','MKMC','EKF','IEKF','GD','DOE','interpreter','latex','Orientation','horizontal')
 xticks([])
 ylabel('yaw ($\deg$)', 'interpreter','latex')
 % ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);

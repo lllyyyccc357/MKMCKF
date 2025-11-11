@@ -520,7 +520,7 @@ plot(t_eul,err_iekf(:,1),'LineWidth',1,'color','blue')
 plot(t_eul,err_gd(:,1),'LineWidth',1,'color','m')
 plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
 %plot(err_mkmc(:,1),'linewidth',0.8)
-legend('DMKCIEKF','MKCEKF','EKF','IEKF','GD','DOE','interpreter','latex','Orientation','horizontal')
+legend('DMKCIEKF','MKMC','EKF','IEKF','GD','DOE','interpreter','latex','Orientation','horizontal')
 xticks([])
 ylabel('yaw ($\deg$)', 'interpreter','latex')
 % ylabel('航向角（°）',  'Interpreter', 'latex', 'FontSize', 16);

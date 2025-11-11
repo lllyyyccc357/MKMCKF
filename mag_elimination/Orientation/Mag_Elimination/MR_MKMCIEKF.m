@@ -49,7 +49,7 @@ br_a=Bra*eye(3);
 br_m=Brm*eye(3);
     
 h=[1;0;0];
-
+g=[0;0;1];
 warning off
 
 for i=1:length(t)-1
@@ -66,7 +66,7 @@ for i=1:length(t)-1
 %     Ppriori= L_k*Ppost*L_k'+Q;
     %Ppriori= Ppost+Q;
     % update
-    cnt=6;
+    cnt=4;
     num=cnt;
 
      while(num>0)
@@ -76,6 +76,7 @@ for i=1:length(t)-1
         X_tlast=X_t; 
        end
         zma=[ax(i);ay(i);az(i)];
+        zma=zma/norm(zma);
         za=(X_tlast*zma-g);
          H_acc=vec2matrix(g);
 
