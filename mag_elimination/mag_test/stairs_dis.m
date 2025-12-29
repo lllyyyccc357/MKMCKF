@@ -117,7 +117,7 @@ euler_IEKF=eulerd(Quat_iekf,'ZXY','frame');
 % ekfb=ekf;
 % euler_eks=euler_ekf;
 %% Thomas elimination
-sigma_acc_init=0.5;
+sigma_acc_init=2.5;
 sigma_mag_init=5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
@@ -214,7 +214,7 @@ t_offset=t(locs2(1))-imuMC.t(locs1(1));
 t_offset=mean(t_offset)
 imuMC.t=imuMC.t+t_offset-4*0.0025;   % time alignment: this is important
 t_s=max(min(imuMC.t),1800*0.0025);
-t_e=max(imuMC.t);
+t_e=0.8*max(imuMC.t);
 clear index_tracker index_imu
 index_tracker=find(imuMC.t>=t_s&imuMC.t<=t_e); % index for tracker
 index_tracker=index_tracker';

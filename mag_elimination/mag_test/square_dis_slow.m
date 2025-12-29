@@ -495,13 +495,16 @@ time_mag=0:1/400:(1/400*(size(Mag_norm,2)-1));
 MagNorm_init=mean(Mag_norm(1,1:20));
 MagNorm_max=max(Mag_norm);
 figure
+
 x11=subplot(2,1,1);
 plot(time_mag',Mag_norm','LineWidth',1,'color','r')
 ylabel('Magnetic Norm', 'interpreter','latex')
+set(gca,'FontSize',25)
 x12=subplot(2,1,2);
 plot(time_mag',Acc_norm','LineWidth',1,'color','r')
-xlabel('t');
+xlabel('t(s)');
 ylabel('Acclerator Norm', 'interpreter','latex')
+set(gca,'FontSize',25)
 % % 设置阈值
 % threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
 

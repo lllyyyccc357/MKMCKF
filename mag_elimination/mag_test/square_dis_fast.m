@@ -114,7 +114,7 @@ euler_IEKF=eulerd(Quat_iekf,'ZXY','frame');
 % ekfb=ekf;
 % euler_eks=euler_ekf;
 %% Thomas elimination
-sigma_acc_init=0.5;
+sigma_acc_init=2.5;
 sigma_mag_init=5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
@@ -211,7 +211,7 @@ t_offset=t(locs2(1))-imuMC.t(locs1(1));
 t_offset=mean(t_offset)
 imuMC.t=imuMC.t+t_offset-40*0.0025;   % time alignment: this is important
 t_s=max(min(imuMC.t),0);
-t_e=max(imuMC.t);
+t_e=0.5*max(imuMC.t);
 clear index_tracker index_imu
 index_tracker=find(imuMC.t>=t_s&imuMC.t<=t_e); % index for tracker
 index_tracker=index_tracker';
@@ -319,15 +319,17 @@ q_imu_doe=Quat_doe(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
 q_imu_doe_mc=-b_q.*q_imu_doe.*conj(a_q);
 
-q_imu_vqf=Quat_vqf(index_imu,:);% doe
+q_imu_vqf=Quat_vqf(index_imu,:);% vqf
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
-q_imu_vqf_mc=-b_q.*q_imu_vqf.*conj(a_q);
-q_imu_vqf_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_vqf_mc(1)).*q_imu_vqf_mc;
+q_imu_vqf_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_vqf(1)).*q_imu_vqf;
+q_imu_vqf_mc=-b_q.*q_imu_vqf_mc.*conj(a_q);
+
 
 q_imu_xsens=Quat_xsens(index_imu,:);% doe
 % q_imu_doe=q_imu_doe(1:4:end,:); % sampling alginment
-q_imu_xsens_mc=-b_q.*q_imu_xsens.*conj(a_q);
-q_imu_xsens_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_xsens_mc(1)).*q_imu_xsens_mc;
+q_imu_xsens_mc=q_imu_tho_iekf_mc(1).*conj(q_imu_xsens(1)).*q_imu_xsens;
+q_imu_xsens_mc=-b_q.*q_imu_xsens_mc.*conj(a_q);
+
 
 
 mc=eulerd(q_mc_q,'ZXY','frame');
