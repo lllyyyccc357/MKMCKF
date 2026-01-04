@@ -5,8 +5,8 @@ clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
 % load('mag_disturb_static_4.mat')
-% load('mag_stabledisturb_static_2.mat')
-load('imu-static-stable.mat')
+load('mag_stabledisturb_static_2.mat')
+% load('imu-static-stable.mat')
 % obtain the orientation
 fs=IMU.Acc_fs;
 sample_freq=fs;
@@ -319,7 +319,7 @@ x_last = t_eul(find(Mag_norm > threshold, 1, 'last'));
 plot([x_first, x_first], ylim, 'b--', 'LineWidth', 1);  % 第一个竖线
 plot([x_last, x_last], ylim, 'b--', 'LineWidth', 1);  % 第二个竖线
 set(gca,'FontSize',25)
-
+xlim([0,t_eul(end)])
 
 figure
 
