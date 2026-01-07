@@ -4,8 +4,8 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-% load('mag_disturb_static_4.mat')
-load('mag_stabledisturb_static_2.mat')
+load('mag_disturb_static_4.mat')
+% load('mag_stabledisturb_static_2.mat')
 % load('imu-static-stable.mat')
 % obtain the orientation
 fs=IMU.Acc_fs;
