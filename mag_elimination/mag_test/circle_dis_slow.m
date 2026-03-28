@@ -464,6 +464,16 @@ error.err_doe_rms=rms(err_doe);
 error.err_vqf=rms(err_vqf);
 error.err_xsens=rms(err_xsens);
 % error.err_mkmc_rms=rms(err_mkmc);
+error.err_ekf_maxabs      = max(abs(err_ekf));
+error.err_DMKCEKF_maxabs  = max(abs(err_ekf_tho));
+error.err_iekf_maxabs     = max(abs(err_iekf));
+error.err_DMKCIEKF_maxabs = max(abs(err_iekf_tho));
+error.err_MKCEKF_maxabs   = max(abs(err_cekf));
+error.err_eskf_maxabs     = max(abs(err_eskf));
+error.err_gd_maxabs       = max(abs(err_gd));
+error.err_doe_maxabs      = max(abs(err_doe));
+error.err_vqf_maxabs      = max(abs(err_vqf));
+error.err_xsens_maxabs    = max(abs(err_xsens));
 error
 
 figure 

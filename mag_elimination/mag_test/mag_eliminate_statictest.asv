@@ -4,15 +4,15 @@ close all
 clear all
 addpath(genpath('../Data'));
 addpath(genpath('../Orientation'));
-% load('mag_disturb_static_4.mat')
-load('mag_stabledisturb_static_3.mat')
+load('mag_disturb_static_4.mat')
+% load('mag_stabledisturb_static_3.mat')
 % load('imu-static-stable.mat')
 % obtain the orientation
 fs=IMU.Acc_fs;
 sample_freq=fs;
 Accelerometer=-IMU.Acceleration;
 Gyroscope=IMU.Gyroscope;
-Magnetic=IMU.Magnetic*54;
+Magnetic=IMU.Magnetic*45;
 len=length(Accelerometer);
 for i=1:len
     Acc_norm(i)=norm(Accelerometer(i,:));
@@ -81,12 +81,12 @@ euler_ekf=eulerd(Quat_ekf,'ZYX','frame');
 % euler_eks=euler_ekf;
 
 %% Thomas elimination
-sigma_acc_init=5;
-sigma_mag_init=5;
+sigma_acc_init=2.5;
+sigma_mag_init=2.5;
 sigma_acc=sigma_acc_init;
 sigma_mag=sigma_mag_init;
 t=0:1/fs:1/fs*(len-1);
-stdGyro = 0.005;                % (rad/s)
+stdGyro = 0.05;                % (rad/s)
 stdAcc = 0.981;           % (g)
 stdMag  = 0.02;          % (a.u.)
 % DMKCEKF
@@ -301,88 +301,37 @@ error.err_gd_rms=rms(err_gd);
 error.err_doe_rms=rms(err_doe);
 error.err_vqf_rms=rms(err_vqf);
 error.err_xsens_rms=rms(err_xsens);
-error.err_ekf_max      = max(abs(err_ekf));
-error.err_iekf_max     = max(abs(err_iekf));
-error.err_ekf_tho_max  = max(abs(err_ekf_tho));
-error.err_iekf_tho_max = max(abs(err_iekf_tho));
-error.err_eskf_max     = max(abs(err_eskf));
-error.err_mkcekf_max   = max(abs(err_mkcekf));
-error.err_gd_max       = max(abs(err_gd));
-error.err_doe_max      = max(abs(err_doe));
-error.err_vqf_max      = max(abs(err_vqf));
-error.err_xsens_max    = max(abs(err_xsens));
+% 标准差（直接对误差序列）
+error.err_ekf_std       = std(err_ekf);
+error.err_iekf_std      = std(err_iekf);
+error.err_ekf_tho_std   = std(err_ekf_tho);
+error.err_iekf_tho_std  = std(err_iekf_tho);
+error.err_eskf_std      = std(err_eskf);
+error.err_mkcekf_std    = std(err_mkcekf);
+error.err_gd_std        = std(err_gd);
+error.err_doe_std       = std(err_doe);
+error.err_vqf_std       = std(err_vqf);
+error.err_xsens_std     = std(err_xsens);
+
 error
 figure
+t_eul=0:1/400:(length(err_ekf)-1)*1/400;
+MagNorm_init=mean(Mag_norm(1,1:20));
+MagNorm_max=max(Mag_norm);
 
-t_eul = 0:1/400:(length(err_ekf)-1)*1/400;
-
-MagNorm_init = mean(Mag_norm(1,1:20));
-MagNorm_max  = max(Mag_norm);
-
-threshold = 0.99*MagNorm_init + 0.01*MagNorm_max;
-
-x_first = t_eul(find(Mag_norm > threshold, 1, 'first'));
-x_last  = t_eul(find(Mag_norm > threshold, 1, 'last'));
-
-%% ===== Top subplot: Scaled geomagnetic norm (Beijing reference ~54 uT) =====
-ax1 = axes;
-set(ax1,'Position',[0.1 0.55 0.85 0.4])
-
-% Plot magnetic norm (scaled)
-plot(t_eul, Mag_norm, 'LineWidth',1.5, 'Color',[0.85 0.1 0.1])
+plot(t_eul,Mag_norm,'LineWidth',1,'color','r')
+xlabel('t (s)');
+ylabel('Magnetic Norm', 'interpreter','latex')
 hold on
+% 设置阈值
+threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
 
-% Plot disturbance interval markers (no legend)
-yl1 = ylim;
-plot([x_first, x_first], yl1, '--', 'Color',[0 0.45 0.74], 'LineWidth',1.6, 'HandleVisibility','off')
-plot([x_last,  x_last],  yl1, '--', 'Color',[0 0.45 0.74], 'LineWidth',1.6, 'HandleVisibility','off')
-
-% Optional shaded region (can comment out if not needed)
-patch([x_first x_last x_last x_first], ...
-      [yl1(1) yl1(1) yl1(2) yl1(2)], ...
-      [0.9 0.9 0.9], 'FaceAlpha',0.25, 'EdgeColor','none', 'HandleVisibility','off')
-
-ylabel('Magnetic Norm ($\mu$T)', 'Interpreter','latex')
-set(gca,'FontSize',20)
-xlim([0 t_eul(end)])
-
-% Remove x tick labels for top plot
-set(gca,'XTickLabel',[])
-box on
-
-legend({'Scaled Norm'}, 'Location','best')
-
-%% ===== Bottom subplot: Raw magnetometer measurements =====
-ax2 = axes;
-set(ax2,'Position',[0.1 0.1 0.85 0.35])
-
-% Plot 3-axis magnetic data
-plot(t_eul, IMU.Magnetic(:,1), 'LineWidth',1.6, 'Color',[0.85 0.33 0.1]) % X
-hold on
-plot(t_eul, IMU.Magnetic(:,2), 'LineWidth',1.6, 'Color',[0.13 0.55 0.13]) % Y
-plot(t_eul, IMU.Magnetic(:,3), 'LineWidth',1.6, 'Color',[0.3 0.3 0.9])   % Z
-
-% Plot the same disturbance interval markers
-yl2 = ylim;
-plot([x_first, x_first], yl2, '--', 'Color',[0 0.45 0.74], 'LineWidth',1.2, 'HandleVisibility','off')
-plot([x_last,  x_last],  yl2, '--', 'Color',[0 0.45 0.74], 'LineWidth',1.2, 'HandleVisibility','off')
-
-% Optional shaded region
-patch([x_first x_last x_last x_first], ...
-      [yl2(1) yl2(1) yl2(2) yl2(2)], ...
-      [0.9 0.9 0.9], 'FaceAlpha',0.25, 'EdgeColor','none', 'HandleVisibility','off')
-
-ylabel('Magnetic Field (a.u.)', 'Interpreter','latex')
-xlabel('t (s)')
-
-set(gca,'FontSize',20)
-xlim([0 t_eul(end)])
-box on
-
-legend({'Mag X','Mag Y','Mag Z'}, 'Location','best')
-
-%% ===== Link x-axes for alignment =====
-linkaxes([ax1, ax2],'x')
+x_first= t_eul(find(Mag_norm > threshold, 1, 'first'));
+x_last = t_eul(find(Mag_norm > threshold, 1, 'last'));
+plot([x_first, x_first], ylim, 'b--', 'LineWidth', 1);  % 第一个竖线
+plot([x_last, x_last], ylim, 'b--', 'LineWidth', 1);  % 第二个竖线
+set(gca,'FontSize',25)
+xlim([0,t_eul(end)])
 
 figure
 
@@ -449,88 +398,53 @@ ylabel('pitch ($\deg$)', 'interpreter','latex')
 % 
 figure
 
-marker_idx = 1:round(length(t_eul)/20):length(t_eul); % 控制marker密度
-
-%% ===== YAW =====
 x1=subplot(3,1,1);
-set(gca,'FontSize',32)
 hold on
+plot(t_eul,err_iekf_tho(:,1),'LineWidth',1.5,'color','black')
+plot(t_eul,err_ekf(:,1),'LineWidth',1,'color','g')
+% plot(t_eul,err_ekf_tho(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf(:,1),'LineWidth',1,'color','blue')
+plot(t_eul,err_doe(:,1),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
+legend('DMKCIEKF','EKF','IEKF','IGD','interpreter','latex','Orientation','horizontal')
 
-plot(t_eul,err_iekf_tho(:,1),'-o','LineWidth',2.5,'Color',[0 0 0],...
-    'MarkerIndices',marker_idx,'MarkerSize',6) % 黑色 + 圆点（主方法）
-
-plot(t_eul,err_ekf(:,1),'--s','LineWidth',2,'Color',[0 0.4470 0.7410],...
-    'MarkerIndices',marker_idx,'MarkerSize',6) % 蓝色 + 方块
-
-plot(t_eul,err_iekf(:,1),'-.^','LineWidth',2,'Color',[0.8500 0.3250 0.0980],...
-    'MarkerIndices',marker_idx,'MarkerSize',6) % 橙色 + 三角
-
-plot(t_eul,err_doe(:,1),':d','LineWidth',2,'Color',[0.4660 0.6740 0.1880],...
-    'MarkerIndices',marker_idx,'MarkerSize',6) % 绿色 + 菱形
-
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2)
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2)
-
-legend('DMKCIEKF','EKF','IEKF','IGD',...
-    'interpreter','latex','Orientation','horizontal')
 
 xticks([])
 ylabel('yaw ($\deg$)', 'interpreter','latex')
+set(gca,'FontSize',16)
 box on
-
-
-%% ===== ROLL =====
 x2=subplot(3,1,2);
-set(gca,'FontSize',32)
 hold on
-
-plot(t_eul,err_iekf_tho(:,2),'-o','LineWidth',2.5,'Color',[0 0 0],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot(t_eul,err_ekf(:,2),'--s','LineWidth',2,'Color',[0 0.4470 0.7410],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot(t_eul,err_iekf(:,2),'-.^','LineWidth',2,'Color',[0.8500 0.3250 0.0980],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot(t_eul,err_doe(:,2),':d','LineWidth',2,'Color',[0.4660 0.6740 0.1880],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2)
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2)
+plot(t_eul,err_iekf_tho(:,2),'LineWidth',1.5,'color','black')
+plot(t_eul,err_ekf(:,2),'LineWidth',1,'color','g')
+% plot(t_eul,err_ekf_tho(:,2),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf(:,2),'LineWidth',1,'color','blue')
+plot(t_eul,err_doe(:,2),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+ylabel('roll ($\deg$)', 'interpreter','latex')
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
 
 xticks([])
-ylabel('roll ($\deg$)', 'interpreter','latex')
 box on
-
-
-%% ===== PITCH =====
 x3=subplot(3,1,3);
-set(gca,'FontSize',32)
 hold on
+plot(t_eul,err_iekf_tho(:,3),'LineWidth',1.5,'color','black')
+plot(t_eul,err_ekf(:,3),'LineWidth',1,'color','g')
+% plot(t_eul,err_ekf_tho(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_iekf(:,3),'LineWidth',1,'color','blue')
+plot(t_eul,err_doe(:,3),'LineWidth',1,'color',[0.4940 0.1840 0.5560])
+plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2);  % 第一个竖线
+plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2);  % 第二个竖线
 
-plot(t_eul,err_iekf_tho(:,3),'-o','LineWidth',2.5,'Color',[0 0 0],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot(t_eul,err_ekf(:,3),'--s','LineWidth',2,'Color',[0 0.4470 0.7410],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot(t_eul,err_iekf(:,3),'-.^','LineWidth',2,'Color',[0.8500 0.3250 0.0980],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot(t_eul,err_doe(:,3),':d','LineWidth',2,'Color',[0.4660 0.6740 0.1880],...
-    'MarkerIndices',marker_idx,'MarkerSize',6)
-
-plot([x_first, x_first], ylim, 'r--', 'LineWidth', 2)
-plot([x_last, x_last], ylim, 'r--', 'LineWidth', 2)
-
-xlabel('t (s)', 'interpreter','latex')
+xlabel('time (s)', 'interpreter','latex')
 ylabel('pitch ($\deg$)', 'interpreter','latex')
 box on
-
 linkaxes([x1,x2,x3],'x')
 xlim([0,t_eul(end)])
+set(gcf,'position',[N N 750 600])
 
-set(gcf,'position',[100 100 750 600])
+xlabel('t');
+ylabel('pitch ($\deg$)', 'interpreter','latex')
 
 end

@@ -390,17 +390,31 @@ for i=1:lenEuler
 end
 
 %
-error.err_ekf_rms=rms(err_ekf);
-error.err_DMKCEKF_rms=rms(err_ekf_tho);
-error.err_iekf_rms=rms(err_iekf);
-error.err_DMKCIEKF_rms=rms(err_iekf_tho);
-error.err_MKCEKF_rms=rms(err_cekf);
-error.err_eskf_rms=rms(err_eskf);
-error.err_gd_rms=rms(err_gd);
-error.err_doe_rms=rms(err_doe);
-error.err_vqf=rms(err_vqf);
-error.err_xsens=rms(err_xsens);
-% error.err_mkmc_rms=rms(err_mkmc);
+% ===== Root Mean Square Error (RMSE) =====
+error.err_ekf_rms = rms(err_ekf);              % EKF RMSE
+error.err_DMKCEKF_rms = rms(err_ekf_tho);      % DMKCEKF RMSE
+error.err_iekf_rms = rms(err_iekf);            % IEKF RMSE
+error.err_DMKCIEKF_rms = rms(err_iekf_tho);    % DMKCIEKF RMSE
+error.err_MKCEKF_rms = rms(err_cekf);          % MKCEKF RMSE
+error.err_eskf_rms = rms(err_eskf);            % ESKF RMSE
+error.err_gd_rms = rms(err_gd);                % Gradient Descent RMSE
+error.err_doe_rms = rms(err_doe);              % IGD/DOE RMSE
+error.err_vqf_rms = rms(err_vqf);              % VQF RMSE
+error.err_xsens_rms = rms(err_xsens);          % Reference (Xsens) RMSE
+% error.err_mkmc_rms = rms(err_mkmc);          % MKMC RMSE (optional)
+
+error.err_ekf_maxabs      = max(abs(err_ekf));
+error.err_DMKCEKF_maxabs  = max(abs(err_ekf_tho));
+error.err_iekf_maxabs     = max(abs(err_iekf));
+error.err_DMKCIEKF_maxabs = max(abs(err_iekf_tho));
+error.err_MKCEKF_maxabs   = max(abs(err_cekf));
+error.err_eskf_maxabs     = max(abs(err_eskf));
+error.err_gd_maxabs       = max(abs(err_gd));
+error.err_doe_maxabs      = max(abs(err_doe));
+error.err_vqf_maxabs      = max(abs(err_vqf));
+error.err_xsens_maxabs    = max(abs(err_xsens));
+
+
 error
 
 % figure 

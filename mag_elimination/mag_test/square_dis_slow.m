@@ -17,7 +17,7 @@ fs=IMU.Acc_fs;
 sample_freq=fs;
 Accelerometer=-IMU.Acceleration;
 Gyroscope=IMU.Gyroscope;
-Magnetic=IMU.Magnetic*45;
+Magnetic=IMU.Magnetic*54;
 len=length(Accelerometer);
 for i=1:len
     Acc_norm(i)=norm(Accelerometer(i,:));
@@ -26,7 +26,7 @@ end
 
 %% orientation estimation using ESKF, GD, DOE, MKMC, and EKF
 %% ESKF
-MagSth=45;
+MagSth=54;
 ahrs=orientation_estimation_ahrs_fun_xsens(Accelerometer,Gyroscope,Magnetic,fs,MagSth);
 Quat_eskf=ahrs.Quat;
 euler_eskf=eulerd(Quat_eskf,'ZXY','frame');
@@ -464,6 +464,16 @@ error.err_doe_rms=rms(err_doe);
 error.err_vqf=rms(err_vqf);
 error.err_xsens=rms(err_xsens);
 % error.err_mkmc_rms=rms(err_mkmc);
+error.err_ekf_maxabs      = max(abs(err_ekf));
+error.err_DMKCEKF_maxabs  = max(abs(err_ekf_tho));
+error.err_iekf_maxabs     = max(abs(err_iekf));
+error.err_DMKCIEKF_maxabs = max(abs(err_iekf_tho));
+error.err_MKCEKF_maxabs   = max(abs(err_cekf));
+error.err_eskf_maxabs     = max(abs(err_eskf));
+error.err_gd_maxabs       = max(abs(err_gd));
+error.err_doe_maxabs      = max(abs(err_doe));
+error.err_vqf_maxabs      = max(abs(err_vqf));
+error.err_xsens_maxabs    = max(abs(err_xsens));
 error
 
 % figure 
@@ -490,21 +500,47 @@ error
 % set(gca,'FontSize',16)
 % xlabel('time (s)', 'interpreter','latex')
 % ylabel('pitch ($\deg$)', 'interpreter','latex')
-%% Mag Norm 
-time_mag=0:1/400:(1/400*(size(Mag_norm,2)-1));
-MagNorm_init=mean(Mag_norm(1,1:20));
-MagNorm_max=max(Mag_norm);
+%% ===== Time Axis =====
+fs = 400; % 采样频率
+N = length(Mag_norm);
+time_mag = (0:N-1)/fs;
+
+%% ===== Plot =====
 figure
 
-x11=subplot(2,1,1);
-plot(time_mag',Mag_norm','LineWidth',1,'color','r')
-ylabel('Magnetic Norm', 'interpreter','latex')
+colors = [0 0.4470 0.7410]; % 高级蓝色（比红更论文友好）
+
+%% ===== Magnetic Norm =====
+x11 = subplot(2,1,1);
+hold on
+plot(time_mag, Mag_norm, 'LineWidth',2,'Color','r')
+
+ylabel('Mag norm ($\mu T$)', 'interpreter','latex')
 set(gca,'FontSize',25)
-x12=subplot(2,1,2);
-plot(time_mag',Acc_norm','LineWidth',1,'color','r')
-xlabel('t(s)');
-ylabel('Acclerator Norm', 'interpreter','latex')
+
+
+xticks([]) % 上图不显示x轴
+box on
+
+
+%% ===== Accelerometer Norm =====
+x12 = subplot(2,1,2);
+hold on
+plot(time_mag, Acc_norm, 'LineWidth',2,'Color',colors)
+
+xlabel('t (s)', 'interpreter','latex')
+ylabel('Acc norm ($m/s^2$)', 'interpreter','latex')
 set(gca,'FontSize',25)
+
+box on
+
+
+%% ===== 对齐 =====
+linkaxes([x11,x12],'x')
+xlim([time_mag(1), time_mag(end)])
+
+set(gcf,'position',[100 100 750 500])
+set(gcf,'Color','w')
 % % 设置阈值
 % threshold = 0.99*MagNorm_init+0.01*MagNorm_max;
 
@@ -568,7 +604,57 @@ linkaxes([x1,x2,x3],'x')
 xlim([0,t_eul(end)])
 set(gcf,'position',[100 100 750 600])
 
+%% ===== Time Axis =====
+fs = 400; % Sampling frequency (Hz) - modify if needed
+N = size(IMU.Magnetic,1);
+t = (0:N-1)/fs; % Time vector
 
+%% ===== Color definition for x/y/z axes =====
+colors = [0 0.4470 0.7410;    % x-axis (blue)
+          0.8500 0.3250 0.0980; % y-axis (orange)
+          0.4660 0.6740 0.1880];% z-axis (green)
+
+figure
+
+%% ===== Magnetometer raw data (3-axis) =====
+x1 = subplot(2,1,1);
+hold on
+set(gca,'FontSize',25)
+
+plot(t, IMU.Magnetic(:,1), 'LineWidth',2,'Color',colors(1,:)) % x-axis
+plot(t, IMU.Magnetic(:,2), 'LineWidth',2,'Color',colors(2,:)) % y-axis
+plot(t, IMU.Magnetic(:,3), 'LineWidth',2,'Color',colors(3,:)) % z-axis
+
+ylabel('Magnetometer ($\mu T$)', 'interpreter','latex')
+legend('x','y','z','Orientation','horizontal','Location','best')
+
+xticks([]) % Remove x-axis ticks for the top subplot
+box on
+
+
+%% ===== Accelerometer raw data (3-axis) =====
+x2 = subplot(2,1,2);
+hold on
+set(gca,'FontSize',25)
+
+plot(t, Accelerometer(:,1), 'LineWidth',2,'Color',colors(1,:)) % x-axis
+plot(t, Accelerometer(:,2), 'LineWidth',2,'Color',colors(2,:)) % y-axis
+plot(t, Accelerometer(:,3), 'LineWidth',2,'Color',colors(3,:)) % z-axis
+
+xlabel('t (s)', 'interpreter','latex')
+ylabel('Accelerometer ($m/s^2$)', 'interpreter','latex')
+legend('x','y','z','Orientation','horizontal','Location','best')
+
+box on
+
+
+%% ===== Link x-axes for synchronized zooming =====
+linkaxes([x1,x2],'x')
+xlim([t(1), t(end)])
+
+%% ===== Figure formatting =====
+set(gcf,'position',[100 100 750 500])
+set(gcf,'Color','w')
 
 
 end
